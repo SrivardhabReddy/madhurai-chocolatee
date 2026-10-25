@@ -1,0 +1,24 @@
+{
+  "name": "madhurai-chocolate-platform",
+  "version": "1.0.0",
+  "description": "Production Ready Two-Website E-Commerce System for Madhurai Chocolate",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n \"API,CUSTOMER,ADMIN\" -c \"magenta,blue,green\" \"npm run dev:backend\" \"npm run dev:customer\" \"npm run dev:admin\"",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:customer": "npm --prefix customer-web run dev",
+    "dev:admin": "npm --prefix admin-web run dev",
+    "seed": "npm --prefix backend run seed",
+    "migrate": "npm --prefix backend run migrate",
+    "build:customer": "npm --prefix customer-web run build",
+    "build:admin": "npm --prefix admin-web run build",
+    "build": "npm run build:customer && npm run build:admin",
+    "start": "npm --prefix backend start",
+    "install:all": "npm --prefix backend install && npm --prefix customer-web install && npm --prefix admin-web install",
+    "test": "node --test tests/**/*.test.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

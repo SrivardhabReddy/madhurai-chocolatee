@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 680" width="480" height="680">
+  <defs>
+    <linearGradient id="cardBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFDF9" />
+      <stop offset="100%" stop-color="#FBF6EE" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#D97706" />
+      <stop offset="50%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#B45309" />
+    </linearGradient>
+  </defs>
+
+  <!-- Outer Card -->
+  <rect x="16" y="16" width="448" height="648" rx="24" fill="url(#cardBg)" stroke="#E6D7C3" stroke-width="2" />
+  
+  <!-- Header Bar -->
+  <rect x="16" y="16" width="448" height="12" rx="6" fill="url(#goldGrad)" />
+
+  <!-- Brand Title -->
+  <text x="240" y="68" font-family="'Cinzel', 'Playfair Display', Georgia, serif" font-size="24" font-weight="800" fill="#2C170E" text-anchor="middle" letter-spacing="3">
+    MADHURAI CHOCOLATE
+  </text>
+  <text x="240" y="92" font-family="'Inter', 'Segoe UI', Arial, sans-serif" font-size="11" font-weight="600" fill="#D97706" text-anchor="middle" letter-spacing="1.5">
+    ARTISANAL HANDCRAFTED CONFECTIONERY
+  </text>
+
+  <!-- Divider Line -->
+  <line x1="60" y1="108" x2="420" y2="108" stroke="#E6D7C3" stroke-width="1" />
+
+  <!-- Subhead -->
+  <text x="240" y="136" font-family="'Inter', 'Segoe UI', Arial, sans-serif" font-size="14" font-weight="700" fill="#4A2818" text-anchor="middle">
+    Scan to Browse Catalog &amp; Order
+  </text>
+  <text x="240" y="156" font-family="'Inter', 'Segoe UI', Arial, sans-serif" font-size="11" fill="#78716C" text-anchor="middle">
+    Open your phone camera to visit the customer storefront
+  </text>
+
+  <!-- QR Code Container Box -->
+  <rect x="80" y="180" width="320" height="320" rx="18" fill="#FFFFFF" stroke="#F59E0B" stroke-width="3" />
+  
+  <!-- Embedded QR Code Image -->
+  <image href="data:image/png;base64,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" x="90" y="190" width="300" height="300" />
+
+  <!-- URL Tag -->
+  <rect x="100" y="518" width="280" height="32" rx="16" fill="#F3EDE2" />
+  <text x="240" y="539" font-family="monospace, 'Courier New'" font-size="12" font-weight="700" fill="#2C170E" text-anchor="middle">
+    http://192.168.0.101:3000
+  </text>
+
+  <!-- Badges Footer -->
+  <text x="240" y="580" font-family="'Inter', 'Segoe UI', Arial, sans-serif" font-size="11" font-weight="700" fill="#059669" text-anchor="middle">
+    Pure Vegetable Fat • 0% Palm Oil • Zero Trans Fat
+  </text>
+  <text x="240" y="602" font-family="'Inter', 'Segoe UI', Arial, sans-serif" font-size="10" fill="#78716C" text-anchor="middle">
+    FSSAI: 2018 2629000442 • Gudur, Andhra Pradesh
+  </text>
+  <text x="240" y="622" font-family="'Inter', 'Segoe UI', Arial, sans-serif" font-size="10" font-weight="600" fill="#B45309" text-anchor="middle">
+    Customer Care: +91 96768 23113 | madhuraicompany@gmail.com
+  </text>
+</svg>

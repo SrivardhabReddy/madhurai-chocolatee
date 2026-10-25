@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="cacaoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3E2317" />
+      <stop offset="100%" stop-color="#1B0F09" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#D97706" />
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" rx="28" fill="url(#cacaoGrad)" />
+  <circle cx="50" cy="50" r="34" fill="none" stroke="url(#goldGrad)" stroke-width="3" stroke-dasharray="4 2" />
+  <path d="M50 24 C50 24 32 38 32 54 C32 64 40 72 50 72 C60 72 68 64 68 54 C68 38 50 24 50 24 Z" fill="url(#goldGrad)" />
+  <path d="M50 34 C50 34 38 45 38 56 C38 62 43 66 50 66 C57 66 62 62 62 56 C62 45 50 34 50 34 Z" fill="#2C1810" />
+  <circle cx="50" cy="52" r="4" fill="url(#goldGrad)" />
+</svg>

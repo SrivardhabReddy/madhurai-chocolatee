@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: madhurai-chocolate
+    env: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: PAYMENT_GATEWAY
+        value: MOCK_SANDBOX
+      - key: UPI_VPA
+        value: 9676823113-2@ybl

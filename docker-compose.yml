@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # --------------------------------------------------------------------------
+  # 1. PostgreSQL Database Service
+  # --------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: madhurai_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: madhurai_user
+      POSTGRES_PASSWORD: SecurePassword123
+      POSTGRES_DB: madhurai_chocolate
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/migrations/001_initial_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ./database/seeds/001_seed_data.sql:/docker-entrypoint-initdb.d/02_seeds.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U madhurai_user -d madhurai_chocolate"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --------------------------------------------------------------------------
+  # 2. Secure Backend API (Port 4000)
+  # --------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: madhurai_backend
+    restart: always
+    environment:
+      PORT: 4000
+      NODE_ENV: production
+      DATABASE_URL: postgresql://madhurai_user:SecurePassword123@postgres:5432/madhurai_chocolate
+      JWT_SECRET: c2e8a159f81d4e0e84b80b72183c749964e5c46e31c8901869818dc905ba2e74
+      JWT_EXPIRES_IN: 7d
+      PAYMENT_GATEWAY: MOCK_SANDBOX
+      PAYMENT_GATEWAY_KEY: sandbox_key
+      PAYMENT_GATEWAY_SECRET: sandbox_secret
+      PAYMENT_WEBHOOK_SECRET: webhook_secret
+      UPI_VPA: 9676823113-2@ybl
+      APP_URL: http://localhost:4000
+      CUSTOMER_APP_URL: http://localhost:3000
+      ADMIN_APP_URL: http://localhost:3001
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./backend/uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # --------------------------------------------------------------------------
+  # 3. Customer Website (madhuraichocolate.com - Port 3000)
+  # --------------------------------------------------------------------------
+  customer-web:
+    build:
+      context: ./customer-web
+      dockerfile: Dockerfile
+    container_name: madhurai_customer_web
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+  # --------------------------------------------------------------------------
+  # 4. Admin Management Website (admin.madhuraichocolate.com - Port 3001)
+  # --------------------------------------------------------------------------
+  admin-web:
+    build:
+      context: ./admin-web
+      dockerfile: Dockerfile
+    container_name: madhurai_admin_web
+    restart: always
+    ports:
+      - "3001:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
