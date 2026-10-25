@@ -16,6 +16,7 @@
     "build": "npm run build:customer && npm run build:admin",
     "start": "npm --prefix backend start",
     "install:all": "npm --prefix backend install && npm --prefix customer-web install && npm --prefix admin-web install",
+    "postinstall": "npm run install:all",
     "test": "node --test tests/**/*.test.js"
   },
   "devDependencies": {
