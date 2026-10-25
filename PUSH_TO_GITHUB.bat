@@ -6,7 +6,7 @@ echo ===================================================
 echo   Pushing Madhurai Chocolate Platform to GitHub
 echo ===================================================
 echo.
-echo Target: https://github.com/SrivardhabReddy/madhurai-chocolate
+echo Target: https://github.com/SrivardhabReddy/madhurai-chocolatee
 echo Branch: main
 echo.
 
@@ -14,7 +14,7 @@ cd /d "%~dp0"
 set "PATH=%LOCALAPPDATA%\Programs\MinGit\cmd;%PATH%"
 
 git remote remove origin 2>nul
-git remote add origin https://github.com/SrivardhabReddy/madhurai-chocolate.git
+git remote add origin https://github.com/SrivardhabReddy/madhurai-chocolatee.git
 
 echo Uploading project files to GitHub...
 echo (If prompted, enter your GitHub Username and Personal Access Token)

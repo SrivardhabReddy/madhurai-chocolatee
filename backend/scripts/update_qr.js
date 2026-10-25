@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '../..');
 
-const tunnelUrl = 'https://occur-robert-influences-rapids.trycloudflare.com';
+const tunnelUrl = 'https://madhurai-chocolate.onrender.com';
 const wifiUrl = 'http://192.168.0.101:3000';
 
 async function run() {
