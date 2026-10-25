@@ -84,11 +84,8 @@ const customerDist = path.resolve(__dirname, '../../customer-web/dist');
 const adminDist = path.resolve(__dirname, '../../admin-web/dist');
 
 if (fs.existsSync(adminDist)) {
-  app.get('/admin', (req, res) => {
-    res.redirect(301, '/admin/');
-  });
   app.use('/admin', express.static(adminDist));
-  app.get('/admin*', (req, res) => {
+  app.get(['/admin', '/admin/*'], (req, res) => {
     res.sendFile(path.join(adminDist, 'index.html'));
   });
 }
