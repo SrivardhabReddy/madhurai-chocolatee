@@ -37,9 +37,26 @@ export default function Home({ onNavigate }) {
     }).finally(() => setLoading(false));
   }, []);
 
-  const mainProduct = products.find(p => p.slug === 'chocolate-crunch-peanut-butter-inside') || products[0];
-  const bestsellers = products.filter(p => p.is_bestseller === 1);
-  const newProducts = products.filter(p => p.is_new === 1);
+  const fallbackProduct = {
+    id: 1,
+    name: 'Chocolate Crunch Peanut Butter Inside',
+    slug: 'chocolate-crunch-peanut-butter-inside',
+    weight: '500g',
+    pieces_per_pack: 40,
+    mrp: 499,
+    selling_price: 399,
+    discount: 20,
+    description: 'Freshly roasted stone-ground peanut butter core enveloped in 60% South Indian single-origin dark chocolate.',
+    image_url: '/chocolate-crunch-pb.jpg',
+    is_bestseller: 1,
+    stock: 50
+  };
+
+  const mainProduct = (products && products.length > 0)
+    ? (products.find(p => p.slug === 'chocolate-crunch-peanut-butter-inside') || products[0])
+    : fallbackProduct;
+  const bestsellers = (products && products.length > 0) ? products.filter(p => p.is_bestseller === 1) : [fallbackProduct];
+  const newProducts = (products && products.length > 0) ? products.filter(p => p.is_new === 1) : [fallbackProduct];
 
   const faqs = [
     {

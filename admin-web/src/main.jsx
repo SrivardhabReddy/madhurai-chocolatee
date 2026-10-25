@@ -5,9 +5,11 @@ import { AdminAuthProvider } from './context/AdminAuthContext.jsx';
 import App from './App.jsx';
 import './styles/admin.css';
 
+const routerBase = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '') || '/';
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter basename={import.meta.env.BASE_URL || '/'}>
+    <BrowserRouter basename={routerBase === '/' ? undefined : routerBase}>
       <AdminAuthProvider>
         <App />
       </AdminAuthProvider>

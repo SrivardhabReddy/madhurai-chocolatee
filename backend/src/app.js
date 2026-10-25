@@ -33,27 +33,12 @@ app.use(
   })
 );
 
-// CORS configuration supporting both Customer and Admin web apps
-const allowedOrigins = [
-  config.customerAppUrl,
-  config.adminAppUrl,
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'http://127.0.0.1:3000',
-  'http://127.0.0.1:3001',
-  'https://madhuraichocolate.com',
-  'https://admin.madhuraichocolate.com'
-];
-
+// CORS configuration supporting Customer and Admin web apps across all environments
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, curl, server-to-server)
-      if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
-        callback(null, true);
-      } else {
-        callback(new Error('Blocked by CORS policy.'));
-      }
+      // Allow all origins (localhost, onrender.com, custom domains, mobile apps)
+      callback(null, true);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -99,6 +84,9 @@ const customerDist = path.resolve(__dirname, '../../customer-web/dist');
 const adminDist = path.resolve(__dirname, '../../admin-web/dist');
 
 if (fs.existsSync(adminDist)) {
+  app.get('/admin', (req, res) => {
+    res.redirect(301, '/admin/');
+  });
   app.use('/admin', express.static(adminDist));
   app.get('/admin*', (req, res) => {
     res.sendFile(path.join(adminDist, 'index.html'));
@@ -108,7 +96,7 @@ if (fs.existsSync(adminDist)) {
 if (fs.existsSync(customerDist)) {
   app.use(express.static(customerDist));
   app.get('*', (req, res, next) => {
-    if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/uploads')) {
+    if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/uploads') || req.originalUrl.startsWith('/admin')) {
       return next();
     }
     res.sendFile(path.join(customerDist, 'index.html'));
