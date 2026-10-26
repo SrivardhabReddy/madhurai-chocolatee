@@ -78,11 +78,37 @@ When you are ready to use your own domain name:
 
 ---
 
+## ⚡ Stopping the "Service Waking Up..." Render Loading Screen
+
+When you open your website on Render's Free tier, Render shows a black terminal screen saying:
+> `SERVICE WAKING UP ... ALLOCATING COMPUTE RESOURCES ...`
+
+### Why Does This Happen?
+On Render's Free tier, services go to sleep after **15 minutes of inactivity**. When a new visitor opens the site, Render takes ~50 seconds to wake up.
+
+### How to Make It Open DIRECTLY & INSTANTLY:
+
+#### Option A: UptimeRobot Keep-Alive (100% Free, Recommended)
+1. Sign up for free at [UptimeRobot.com](https://uptimerobot.com).
+2. Click **+ Add New Monitor**.
+3. Select **Monitor Type: HTTP(s)**.
+4. Name: `Madhurai Chocolate`.
+5. URL: `https://<your-render-url>/health` (e.g., `https://madhurai-chocolatee.onrender.com/health`).
+6. Interval: **5 minutes**.
+7. Click **Create Monitor**.
+*Because UptimeRobot pings your server every 5 minutes, Render never detects 15 minutes of inactivity and NEVER goes to sleep. Your site opens instantly every single time!*
+
+#### Option B: GitHub Actions Automatic Ping
+A workflow is already configured at `.github/workflows/keep-alive.yml`. When pushed to your GitHub repository, it automatically pings your Render URL every 10 minutes.
+
+---
+
 ## ⚡ Alternative Free Platforms
 
 | Platform | Best For | Cost | Setup |
 | :--- | :--- | :--- | :--- |
 | **Render.com** | Full-Stack (Frontend + Backend + DB all together) | **100% Free** | Easiest (Single Repo) |
 | **Railway.app** | High performance & persistent storage | Free $5 credit/mo | 1-Click Template |
-| **Vercel + Render** | Superfast global CDN for Storefront | **100% Free** | Split Frontend/Backend |
+| **Vercel + Render** | Superfast global CDN for Storefront (0s cold start) | **100% Free** | Split Frontend/Backend |
 | **Linux VPS (Docker)** | Complete control & high volume | $4 - $6 / mo | `docker compose up -d` |
+

@@ -1,0 +1,18 @@
+name: Keep Render Service Awake 24/7
+
+on:
+  schedule:
+    # Runs every 10 minutes to prevent Render free tier from sleeping (sleep happens after 15 mins)
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # Allows manual trigger anytime from GitHub Actions tab
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render Backend Health Endpoint
+        run: |
+          RENDER_URL="${{ secrets.RENDER_APP_URL || 'https://madhurai-chocolate.onrender.com' }}"
+          echo "Pinging $RENDER_URL/health to keep Render service awake..."
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "$RENDER_URL/health" || true)
+          echo "HTTP Response Status: $RESPONSE"
