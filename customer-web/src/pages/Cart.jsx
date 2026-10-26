@@ -16,20 +16,8 @@ export default function Cart({ onNavigate }) {
     removeCoupon
   } = useCart();
 
-  const [couponCode, setCouponCode] = useState(appliedCoupon?.code || '');
-  const [couponError, setCouponError] = useState('');
-  const [couponSuccess, setCouponSuccess] = useState(
-    appliedCoupon ? `Coupon ${appliedCoupon.code} applied!` : ''
-  );
   const [serverSummary, setServerSummary] = useState(null);
   const [loading, setLoading] = useState(false);
-
-  // Keep couponCode in sync if appliedCoupon changes or loads from localStorage
-  useEffect(() => {
-    if (appliedCoupon?.code) {
-      setCouponCode(appliedCoupon.code);
-    }
-  }, [appliedCoupon]);
 
   // Sync and validate with backend recalculation
   useEffect(() => {
@@ -57,49 +45,6 @@ export default function Cart({ onNavigate }) {
       })
       .finally(() => setLoading(false));
   }, [cartItems, deliveryPincode, appliedCoupon]);
-
-  const handleApplyCoupon = async (e) => {
-    e.preventDefault();
-    if (!couponCode.trim()) return;
-    setCouponError('');
-    setCouponSuccess('');
-
-    try {
-      const calcSubtotal = cartItems.reduce((acc, i) => {
-        const price = parseFloat(i.selling_price) || parseFloat(i.price) || 0;
-        const qty = Math.max(1, parseInt(i.quantity, 10) || 1);
-        return acc + (price * qty);
-      }, 0);
-      const currentSubtotal = (serverSummary && serverSummary.subtotal > 0) ? serverSummary.subtotal : calcSubtotal;
-      const mappedItems = cartItems.map(i => ({
-        product_id: i.product_id || i.id,
-        quantity: Math.max(1, parseInt(i.quantity, 10) || 1),
-        selling_price: parseFloat(i.selling_price) || parseFloat(i.price) || 0
-      }));
-
-      const res = await api.validateCoupon(couponCode.trim(), currentSubtotal, mappedItems, deliveryPincode);
-      if (res.success && res.data) {
-        setAppliedCoupon(res.data);
-        const savedAmt = (res.data.discount_amount || res.data.discount || 0).toFixed(2);
-        setCouponSuccess(`Coupon ${res.data.code} applied! Saved ₹${savedAmt}.`);
-      } else {
-        setCouponError(res.message || 'Invalid coupon.');
-      }
-    } catch (err) {
-      setCouponError(err.message || 'Coupon could not be applied.');
-    }
-  };
-
-  const handleRemoveCoupon = () => {
-    if (removeCoupon) {
-      removeCoupon();
-    } else {
-      setAppliedCoupon(null);
-    }
-    setCouponCode('');
-    setCouponSuccess('');
-    setCouponError('');
-  };
 
   if (cartItems.length === 0) {
     return (
@@ -276,55 +221,27 @@ export default function Cart({ onNavigate }) {
               Order Breakdown
             </h3>
 
-            {/* Coupon Box */}
-            <div style={{ marginBottom: '24px' }}>
-              {!appliedCoupon ? (
-                <form onSubmit={handleApplyCoupon} style={{ display: 'flex', gap: '8px' }}>
-                  <input
-                    type="text"
-                    placeholder="Enter Promo Code"
-                    value={couponCode}
-                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                    className="form-input"
-                    style={{ textTransform: 'uppercase', fontSize: '0.88rem' }}
-                  />
-                  <button type="submit" className="btn btn-outline btn-sm" style={{ minWidth: '80px' }}>
-                    APPLY
-                  </button>
-                </form>
-              ) : (
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '10px 14px',
-                  backgroundColor: '#D1FAE5',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid #A7F3D0',
-                  color: '#065F46',
-                  fontSize: '0.88rem',
-                  fontWeight: '600'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Tag size={16} />
-                    <span>{appliedCoupon.code} (-₹{(discountAmount || appliedCoupon.discount_amount || appliedCoupon.discount || 0).toFixed(0)})</span>
-                  </div>
-                  <button onClick={handleRemoveCoupon} style={{ color: 'var(--danger-color)', fontSize: '0.8rem', fontWeight: '700' }}>
-                    Remove
-                  </button>
-                </div>
-              )}
-
-              {couponError && (
-                <span style={{ fontSize: '0.8rem', color: 'var(--danger-color)', marginTop: '4px', display: 'block' }}>
-                  {couponError}
-                </span>
-              )}
-              {couponSuccess && (
-                <span style={{ fontSize: '0.8rem', color: 'var(--success-color)', marginTop: '4px', display: 'block' }}>
-                  {couponSuccess}
-                </span>
-              )}
+            {/* Direct to Payment Coupon Notice */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '12px 14px',
+              backgroundColor: 'var(--cream-100)',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border-subtle)',
+              color: 'var(--cacao-900)',
+              fontSize: '0.86rem',
+              marginBottom: '20px'
+            }}>
+              <Tag size={16} style={{ color: 'var(--peanut-gold-700)', flexShrink: 0 }} />
+              <span>
+                {appliedCoupon ? (
+                  <span>Coupon <strong>{appliedCoupon.code}</strong> applied! You can manage it directly in the <strong>Payment Section</strong> at checkout.</span>
+                ) : (
+                  <span>Have a discount coupon? You can apply it directly in the <strong>Payment Section</strong> at checkout!</span>
+                )}
+              </span>
             </div>
 
             {/* Cost Breakdown Lines */}
