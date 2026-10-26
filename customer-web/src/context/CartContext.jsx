@@ -21,7 +21,15 @@ export function CartProvider({ children }) {
     }
   });
 
-  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [appliedCoupon, setAppliedCoupon] = useState(() => {
+    try {
+      const saved = localStorage.getItem('mc_coupon');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
   const [deliveryPincode, setDeliveryPincode] = useState(() => {
     try {
       return localStorage.getItem('mc_pincode') || '';
@@ -45,6 +53,18 @@ export function CartProvider({ children }) {
       console.error('Failed to save wishlist to localStorage', e);
     }
   }, [wishlist]);
+
+  useEffect(() => {
+    try {
+      if (appliedCoupon) {
+        localStorage.setItem('mc_coupon', JSON.stringify(appliedCoupon));
+      } else {
+        localStorage.removeItem('mc_coupon');
+      }
+    } catch (e) {
+      console.error('Failed to save coupon to localStorage', e);
+    }
+  }, [appliedCoupon]);
 
   const addItem = (product, quantity = 1) => {
     const qty = Math.max(1, parseInt(quantity, 10) || 1);
@@ -98,6 +118,16 @@ export function CartProvider({ children }) {
   const clearCart = () => {
     setCartItems([]);
     setAppliedCoupon(null);
+    try {
+      localStorage.removeItem('mc_coupon');
+    } catch (e) {}
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    try {
+      localStorage.removeItem('mc_coupon');
+    } catch (e) {}
   };
 
   const toggleWishlist = (product) => {
@@ -133,6 +163,7 @@ export function CartProvider({ children }) {
         isWishlisted,
         appliedCoupon,
         setAppliedCoupon,
+        removeCoupon,
         deliveryPincode,
         setDeliveryPincode
       }}

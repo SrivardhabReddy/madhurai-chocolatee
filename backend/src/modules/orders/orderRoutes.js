@@ -114,20 +114,41 @@ router.post('/', orderLimiter, optionalAuth, async (req, res, next) => {
     if (coupon_code) {
       const cleanCode = String(coupon_code).trim().toUpperCase();
       const coupon = await get('SELECT * FROM coupons WHERE code = ? AND is_active = 1', [cleanCode]);
-      if (coupon) {
-        if (calculatedSubtotal >= coupon.min_order_amount) {
-          if (coupon.discount_type === 'PERCENTAGE') {
-            discountAmount = (calculatedSubtotal * coupon.discount_value) / 100;
-            if (coupon.max_discount_amount && discountAmount > coupon.max_discount_amount) {
-              discountAmount = coupon.max_discount_amount;
-            }
-          } else {
-            discountAmount = coupon.discount_value;
-          }
-          discountAmount = Math.min(discountAmount, calculatedSubtotal);
-          validCoupon = coupon;
-        }
+      if (!coupon) {
+        return res.status(400).json({
+          success: false,
+          message: `Coupon code "${cleanCode}" is invalid or no longer active.`
+        });
       }
+
+      // Check expiry dates
+      const now = new Date();
+      if (coupon.start_date && new Date(coupon.start_date) > now) {
+        return res.status(400).json({ success: false, message: `Coupon "${cleanCode}" is not active yet.` });
+      }
+      if (coupon.end_date && new Date(coupon.end_date) < now) {
+        return res.status(400).json({ success: false, message: `Coupon "${cleanCode}" has expired.` });
+      }
+
+      // Check minimum order amount
+      if (calculatedSubtotal < coupon.min_order_amount) {
+        return res.status(400).json({
+          success: false,
+          message: `Coupon "${cleanCode}" requires a minimum cart subtotal of ₹${coupon.min_order_amount}. Current subtotal is ₹${calculatedSubtotal}.`
+        });
+      }
+
+      if (coupon.discount_type === 'PERCENTAGE') {
+        discountAmount = (calculatedSubtotal * coupon.discount_value) / 100;
+        if (coupon.max_discount_amount && discountAmount > coupon.max_discount_amount) {
+          discountAmount = coupon.max_discount_amount;
+        }
+      } else {
+        discountAmount = coupon.discount_value;
+      }
+      discountAmount = Math.min(discountAmount, calculatedSubtotal);
+      discountAmount = Math.round(discountAmount * 100) / 100;
+      validCoupon = coupon;
     }
 
     // 4. Recalculate delivery charge with final validated items & subtotal
@@ -138,7 +159,7 @@ router.post('/', orderLimiter, optionalAuth, async (req, res, next) => {
     });
 
     const deliveryCharge = finalDelivery.freeDelivery ? 0 : finalDelivery.deliveryCharge;
-    const totalAmount = Math.max(0, calculatedSubtotal - discountAmount + deliveryCharge);
+    const totalAmount = Math.max(0, Math.round((calculatedSubtotal - discountAmount + deliveryCharge) * 100) / 100);
 
     // Format full address snapshot
     const fullAddress = `${house_building}, ${street}, ${area}, Landmark: ${landmark || 'N/A'}, ${city}, ${district || city}, ${state} - ${pincode}`;

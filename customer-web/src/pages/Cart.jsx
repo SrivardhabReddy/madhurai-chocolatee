@@ -4,13 +4,32 @@ import { useCart } from '../context/CartContext.jsx';
 import { api } from '../services/api.js';
 
 export default function Cart({ onNavigate }) {
-  const { cartItems, updateQuantity, removeItem, clearCart, deliveryPincode, setDeliveryPincode } = useCart();
-  const [couponCode, setCouponCode] = useState('');
-  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const { 
+    cartItems, 
+    updateQuantity, 
+    removeItem, 
+    clearCart, 
+    deliveryPincode, 
+    setDeliveryPincode,
+    appliedCoupon,
+    setAppliedCoupon,
+    removeCoupon
+  } = useCart();
+
+  const [couponCode, setCouponCode] = useState(appliedCoupon?.code || '');
   const [couponError, setCouponError] = useState('');
-  const [couponSuccess, setCouponSuccess] = useState('');
+  const [couponSuccess, setCouponSuccess] = useState(
+    appliedCoupon ? `Coupon ${appliedCoupon.code} applied!` : ''
+  );
   const [serverSummary, setServerSummary] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  // Keep couponCode in sync if appliedCoupon changes or loads from localStorage
+  useEffect(() => {
+    if (appliedCoupon?.code) {
+      setCouponCode(appliedCoupon.code);
+    }
+  }, [appliedCoupon]);
 
   // Sync and validate with backend recalculation
   useEffect(() => {
@@ -39,7 +58,8 @@ export default function Cart({ onNavigate }) {
     setCouponSuccess('');
 
     try {
-      const res = await api.validateCoupon(couponCode.trim(), serverSummary?.subtotal || 0, cartItems, deliveryPincode);
+      const currentSubtotal = serverSummary?.subtotal || cartItems.reduce((acc, i) => acc + i.selling_price * i.quantity, 0);
+      const res = await api.validateCoupon(couponCode.trim(), currentSubtotal, cartItems, deliveryPincode);
       if (res.success && res.data) {
         setAppliedCoupon(res.data);
         setCouponSuccess(`Coupon ${res.data.code} applied! Saved ₹${res.data.discount_amount.toFixed(2)}.`);
@@ -52,7 +72,11 @@ export default function Cart({ onNavigate }) {
   };
 
   const handleRemoveCoupon = () => {
-    setAppliedCoupon(null);
+    if (removeCoupon) {
+      removeCoupon();
+    } else {
+      setAppliedCoupon(null);
+    }
     setCouponCode('');
     setCouponSuccess('');
     setCouponError('');
@@ -259,7 +283,7 @@ export default function Cart({ onNavigate }) {
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Tag size={16} />
-                    <span>{appliedCoupon.code} (-₹{discountAmount.toFixed(0)})</span>
+                    <span>{appliedCoupon.code} (-₹{(discountAmount || appliedCoupon.discount_amount || appliedCoupon.discount || 0).toFixed(0)})</span>
                   </div>
                   <button onClick={handleRemoveCoupon} style={{ color: 'var(--danger-color)', fontSize: '0.8rem', fontWeight: '700' }}>
                     Remove
@@ -291,10 +315,10 @@ export default function Cart({ onNavigate }) {
                 <span>₹{subtotal.toFixed(2)}</span>
               </div>
 
-              {discountAmount > 0 && (
+              {(discountAmount > 0 || (appliedCoupon && (appliedCoupon.discount_amount > 0 || appliedCoupon.discount > 0))) && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--success-color)', fontWeight: '600' }}>
-                  <span>Coupon Discount</span>
-                  <span>-₹{discountAmount.toFixed(2)}</span>
+                  <span>Coupon Discount ({appliedCoupon?.code})</span>
+                  <span>-₹{(discountAmount || appliedCoupon?.discount_amount || appliedCoupon?.discount || 0).toFixed(2)}</span>
                 </div>
               )}
 
