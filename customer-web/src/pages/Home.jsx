@@ -38,14 +38,15 @@ export default function Home({ onNavigate }) {
   }, []);
 
   const fallbackProduct = {
-    id: 1,
+    id: 'prod_main_pb_crunch',
+    product_id: 'prod_main_pb_crunch',
     name: 'Chocolate Crunch Peanut Butter Inside',
     slug: 'chocolate-crunch-peanut-butter-inside',
     weight: '500g',
     pieces_per_pack: 40,
-    mrp: 499,
-    selling_price: 399,
-    discount: 20,
+    mrp: 450,
+    selling_price: 400,
+    discount: 11.11,
     description: 'Freshly roasted stone-ground peanut butter core enveloped in 60% South Indian single-origin dark chocolate.',
     image_url: '/chocolate-crunch-pb.jpg',
     is_bestseller: 1,
@@ -148,10 +149,10 @@ export default function Home({ onNavigate }) {
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
               <button
-                onClick={() => onNavigate('product_detail', { slug: 'chocolate-crunch-peanut-butter-inside' })}
+                onClick={() => onNavigate('product_detail', { slug: mainProduct.slug, id: mainProduct.id })}
                 className="btn btn-gold btn-lg"
               >
-                <span>Order Main Product (500g / 40 Pcs)</span>
+                <span>Order {mainProduct.name} ({mainProduct.weight || '500g'})</span>
                 <ArrowRight size={18} />
               </button>
 
@@ -168,7 +169,7 @@ export default function Home({ onNavigate }) {
             <div style={{ display: 'flex', gap: '24px', marginTop: '40px', fontSize: '0.85rem', color: 'var(--cream-300)' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <CheckCircle2 size={16} style={{ color: 'var(--peanut-gold-400)' }} />
-                ₹10 per piece value
+                ₹{mainProduct.pieces_per_pack > 1 ? Math.round(mainProduct.selling_price / mainProduct.pieces_per_pack) : mainProduct.selling_price} per piece value
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <CheckCircle2 size={16} style={{ color: 'var(--peanut-gold-400)' }} />
@@ -209,13 +210,19 @@ export default function Home({ onNavigate }) {
                   position: 'relative'
                 }}>
                   <img
-                    src="/chocolate-crunch-pb.jpg"
-                    alt="Chocolate Crunch Peanut Butter Inside"
+                    src={mainProduct.primary_image?.image_url || mainProduct.image_url || '/chocolate-crunch-pb.jpg'}
+                    alt={mainProduct.name}
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = '/chocolate-crunch-pb.jpg';
+                    }}
                     style={{ width: '100%', height: 'auto', display: 'block' }}
                   />
                   <div style={{ position: 'absolute', top: '16px', left: '16px', display: 'flex', gap: '8px' }}>
                     <span className="badge badge-dark">Flagship Specialty</span>
-                    <span className="badge badge-gold">11% OFF</span>
+                    {mainProduct.discount > 0 && (
+                      <span className="badge badge-gold">{Math.round(mainProduct.discount)}% OFF</span>
+                    )}
                   </div>
                 </div>
 
@@ -261,7 +268,7 @@ export default function Home({ onNavigate }) {
                     {mainProduct.pieces_per_pack} Pieces per Box
                   </span>
                   <span className="badge badge-green" style={{ fontSize: '0.85rem', padding: '6px 14px' }}>
-                    Individual: ₹10 / piece
+                    Individual: ₹{mainProduct.pieces_per_pack > 1 ? (mainProduct.selling_price / mainProduct.pieces_per_pack).toFixed(1) : mainProduct.selling_price} / piece
                   </span>
                 </div>
 
@@ -274,12 +281,16 @@ export default function Home({ onNavigate }) {
                   <span style={{ fontSize: '2.2rem', fontWeight: '800', color: 'var(--cacao-950)' }}>
                     ₹{mainProduct.selling_price}
                   </span>
-                  <span style={{ fontSize: '1.25rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
-                    ₹{mainProduct.mrp}
-                  </span>
-                  <span style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--success-color)' }}>
-                    Save ₹{(mainProduct.mrp - mainProduct.selling_price).toFixed(0)} ({Math.round(mainProduct.discount)}% OFF)
-                  </span>
+                  {mainProduct.mrp > mainProduct.selling_price && (
+                    <span style={{ fontSize: '1.25rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
+                      ₹{mainProduct.mrp}
+                    </span>
+                  )}
+                  {mainProduct.mrp > mainProduct.selling_price && (
+                    <span style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--success-color)' }}>
+                      Save ₹{(mainProduct.mrp - mainProduct.selling_price).toFixed(0)} ({Math.round(mainProduct.discount || (((mainProduct.mrp - mainProduct.selling_price) / mainProduct.mrp) * 100))}% OFF)
+                    </span>
+                  )}
                 </div>
 
                 {/* Quick Add and Buy Now */}

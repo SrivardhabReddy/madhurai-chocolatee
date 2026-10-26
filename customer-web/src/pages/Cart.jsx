@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, Trash2, Plus, Minus, ArrowRight, Tag, Truck, Check, AlertCircle } from 'lucide-react';
+import { ShoppingBag, Trash2, Plus, Minus, ArrowRight, Tag, Truck, Check, AlertCircle, X } from 'lucide-react';
 import { useCart } from '../context/CartContext.jsx';
 import { api } from '../services/api.js';
 
@@ -18,35 +18,101 @@ export default function Cart({ onNavigate }) {
 
   const [serverSummary, setServerSummary] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [couponCodeInput, setCouponCodeInput] = useState('');
+  const [couponMsg, setCouponMsg] = useState({ text: '', type: '' });
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
+
+  // Sync coupon code input if already applied
+  useEffect(() => {
+    if (appliedCoupon?.code) {
+      setCouponCodeInput(appliedCoupon.code);
+    } else {
+      setCouponCodeInput('');
+    }
+  }, [appliedCoupon]);
 
   // Sync and validate with backend recalculation
   useEffect(() => {
-    if (cartItems.length === 0) {
+    if (!cartItems || cartItems.length === 0) {
       setServerSummary(null);
       return;
     }
 
     setLoading(true);
-    const mappedItems = cartItems.map(i => ({
-      product_id: i.product_id || i.id,
-      quantity: Math.max(1, parseInt(i.quantity, 10) || 1),
-      selling_price: parseFloat(i.selling_price) || parseFloat(i.price) || 0,
-      mrp: parseFloat(i.mrp) || 0
-    }));
+    const mappedItems = cartItems.map(i => {
+      const pId = i.product_id || i.id;
+      return {
+        product_id: pId,
+        id: pId,
+        name: i.name,
+        slug: i.slug,
+        quantity: Math.max(1, parseInt(i.quantity, 10) || 1),
+        selling_price: parseFloat(i.selling_price) || parseFloat(i.price) || 0,
+        mrp: parseFloat(i.mrp) || (parseFloat(i.selling_price) || parseFloat(i.price) || 0)
+      };
+    });
 
     api.validateCart(mappedItems, deliveryPincode, appliedCoupon?.code || '')
       .then(res => {
         if (res.success && res.data) {
           setServerSummary(res.data);
+          if (res.data.coupon && !appliedCoupon) {
+            setAppliedCoupon(res.data.coupon);
+          }
         }
       })
       .catch(err => {
-        console.error('Failed to validate cart with backend:', err);
+        console.warn('Backend cart validation failed, relying on local calculations:', err);
       })
       .finally(() => setLoading(false));
   }, [cartItems, deliveryPincode, appliedCoupon]);
 
-  if (cartItems.length === 0) {
+  const handleApplyCoupon = async (e) => {
+    if (e) e.preventDefault();
+    const code = couponCodeInput.trim().toUpperCase();
+    if (!code) {
+      setCouponMsg({ text: 'Please enter a coupon code.', type: 'error' });
+      return;
+    }
+
+    setApplyingCoupon(true);
+    setCouponMsg({ text: '', type: '' });
+
+    try {
+      const mappedItems = cartItems.map(i => ({
+        product_id: i.product_id || i.id,
+        id: i.product_id || i.id,
+        name: i.name,
+        slug: i.slug,
+        quantity: Math.max(1, parseInt(i.quantity, 10) || 1),
+        selling_price: parseFloat(i.selling_price) || parseFloat(i.price) || 0,
+        mrp: parseFloat(i.mrp) || 0
+      }));
+
+      const res = await api.validateCoupon(code, subtotal, mappedItems, deliveryPincode);
+      if (res.success && res.data) {
+        setAppliedCoupon(res.data);
+        const saved = Number(res.data.discount_amount || res.data.discount || 0).toFixed(2);
+        setCouponMsg({ text: `🎉 Coupon ${res.data.code} applied! Saved ₹${saved}.`, type: 'success' });
+      } else {
+        setCouponMsg({ text: res.message || 'Invalid or expired coupon.', type: 'error' });
+      }
+    } catch (err) {
+      setCouponMsg({ text: err.message || 'Could not validate coupon.', type: 'error' });
+    } finally {
+      setApplyingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    removeCoupon();
+    setCouponCodeInput('');
+    setCouponMsg({ text: 'Coupon removed.', type: 'info' });
+    setTimeout(() => setCouponMsg({ text: '', type: '' }), 3000);
+  };
+
+  // If cart is empty, show empty bag UI
+  if (!cartItems || cartItems.length === 0) {
     return (
       <div style={{ padding: '80px 0', backgroundColor: '#FFFFFF', minHeight: '60vh' }}>
         <div className="container" style={{ textAlign: 'center', maxWidth: '500px' }}>
@@ -66,28 +132,59 @@ export default function Cart({ onNavigate }) {
     );
   }
 
-  const fallbackSubtotal = cartItems.reduce((acc, i) => {
+  // Instant reactive client-side totals ensuring 100% responsiveness on any item change
+  const subtotal = cartItems.reduce((acc, i) => {
     const price = parseFloat(i.selling_price) || parseFloat(i.price) || 0;
     const qty = Math.max(1, parseInt(i.quantity, 10) || 1);
     return acc + (price * qty);
   }, 0);
-  const subtotal = (serverSummary && serverSummary.subtotal > 0) ? serverSummary.subtotal : fallbackSubtotal;
-  const totalMrp = serverSummary?.totalMrp || cartItems.reduce((acc, i) => acc + (parseFloat(i.mrp) || fallbackSubtotal) * (parseInt(i.quantity, 10) || 1), 0);
-  const discountAmount = serverSummary?.discountAmount || (appliedCoupon ? (appliedCoupon.discount_amount || appliedCoupon.discount || 0) : 0);
-  const calculatedCartTotal = Math.max(0, subtotal - discountAmount + deliveryCharge);
-  const finalTotal = (serverSummary && serverSummary.subtotal > 0 && serverSummary.finalTotal !== undefined && Math.abs(serverSummary.finalTotal - calculatedCartTotal) < 1)
-    ? serverSummary.finalTotal
-    : calculatedCartTotal;
-  const isFreeDelivery = serverSummary?.delivery?.freeDelivery || false;
+
+  const totalMrp = cartItems.reduce((acc, i) => {
+    const price = parseFloat(i.selling_price) || parseFloat(i.price) || 0;
+    const mrp = parseFloat(i.mrp) || price;
+    const qty = Math.max(1, parseInt(i.quantity, 10) || 1);
+    return acc + (mrp * qty);
+  }, 0);
+
   const totalQuantity = cartItems.reduce((acc, i) => acc + (parseInt(i.quantity, 10) || 1), 0);
+
+  // Delivery calculation: Free if 5+ packs or order subtotal >= ₹500, or explicitly free by server
+  const isFreeDelivery = serverSummary?.delivery?.freeDelivery ?? (totalQuantity >= 5 || subtotal >= 500);
+  const deliveryCharge = isFreeDelivery ? 0 : (serverSummary?.deliveryCharge !== undefined ? Number(serverSummary.deliveryCharge) : 40);
+
+  // Active coupon discount calculation
+  const activeCoupon = appliedCoupon || serverSummary?.coupon;
+  let discountAmount = 0;
+  if (activeCoupon) {
+    if (serverSummary?.discountAmount !== undefined && Number(serverSummary.discountAmount) > 0) {
+      discountAmount = Number(serverSummary.discountAmount);
+    } else if (activeCoupon.discount_amount) {
+      discountAmount = Number(activeCoupon.discount_amount);
+    } else if (activeCoupon.discount) {
+      discountAmount = Number(activeCoupon.discount);
+    }
+  }
+
+  // Final Total is subtotal - discountAmount + deliveryCharge
+  const finalTotal = Math.max(0, subtotal - discountAmount + deliveryCharge);
 
   return (
     <div style={{ padding: '40px 0 80px', backgroundColor: 'var(--cream-50)' }}>
       <div className="container">
         
-        <h1 style={{ fontSize: '2.4rem', color: 'var(--cacao-950)', marginBottom: '32px' }}>
-          Shopping Bag ({totalQuantity} {totalQuantity === 1 ? 'pack' : 'packs'})
-        </h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
+          <h1 style={{ fontSize: '2.4rem', color: 'var(--cacao-950)', margin: 0 }}>
+            Shopping Bag ({totalQuantity} {totalQuantity === 1 ? 'pack' : 'packs'})
+          </h1>
+          <button 
+            onClick={clearCart} 
+            className="btn btn-outline btn-sm"
+            style={{ color: 'var(--danger-color)', borderColor: 'var(--danger-color)' }}
+          >
+            <Trash2 size={14} />
+            <span>Clear Bag</span>
+          </button>
+        </div>
 
         {/* Free Delivery Milestone Progress Ribbon */}
         <div style={{
@@ -104,7 +201,7 @@ export default function Cart({ onNavigate }) {
           <div>
             {isFreeDelivery ? (
               <span style={{ fontWeight: '700', color: 'var(--success-color)', fontSize: '0.92rem' }}>
-                🎉 You qualify for FREE Delivery! ({serverSummary?.delivery?.freeDeliveryReason || 'Order over threshold'})
+                🎉 You qualify for FREE Delivery! ({serverSummary?.delivery?.freeDeliveryReason || (totalQuantity >= 5 ? '5+ packs offer' : 'Order over ₹500')})
               </span>
             ) : (
               <span style={{ fontSize: '0.92rem', color: 'var(--cacao-900)' }}>
@@ -118,95 +215,117 @@ export default function Cart({ onNavigate }) {
           
           {/* Cart Items List */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {cartItems.map(item => (
-              <div
-                key={item.product_id}
-                style={{
-                  backgroundColor: '#FFFFFF',
-                  padding: '20px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-subtle)',
-                  display: 'flex',
-                  gap: '20px',
-                  alignItems: 'center',
-                  boxShadow: 'var(--shadow-sm)'
-                }}
-              >
-                {/* Product Thumbnail */}
-                <div style={{
-                  width: '90px',
-                  height: '90px',
-                  borderRadius: 'var(--radius-sm)',
-                  overflow: 'hidden',
-                  backgroundColor: 'var(--cream-100)',
-                  flexShrink: 0
-                }}>
-                  <img src={item.image_url} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                </div>
+            {cartItems.map((item, index) => {
+              const itemId = item.product_id || item.id || `cart_item_${index}`;
+              const itemSellingPrice = parseFloat(item.selling_price) || parseFloat(item.price) || 0;
+              const itemMrp = parseFloat(item.mrp) || itemSellingPrice;
+              const itemQty = Math.max(1, parseInt(item.quantity, 10) || 1);
+              const itemImg = item.image_url || '/uploads/chocolate-crunch-pb.jpg';
 
-                {/* Details */}
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <h3 style={{ fontSize: '1.08rem', color: 'var(--cacao-950)', marginBottom: '4px' }}>
-                        {item.name}
-                      </h3>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        {item.weight} • {item.pieces_per_pack} pieces ({item.selling_unit})
-                      </span>
-                    </div>
-
-                    <button
-                      onClick={() => removeItem(item.product_id)}
-                      style={{ color: 'var(--text-muted)', padding: '4px' }}
-                      title="Remove"
-                    >
-                      <Trash2 size={18} />
-                    </button>
+              return (
+                <div
+                  key={itemId}
+                  style={{
+                    backgroundColor: '#FFFFFF',
+                    padding: '20px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-subtle)',
+                    display: 'flex',
+                    gap: '20px',
+                    alignItems: 'center',
+                    boxShadow: 'var(--shadow-sm)'
+                  }}
+                >
+                  {/* Product Thumbnail */}
+                  <div style={{
+                    width: '90px',
+                    height: '90px',
+                    borderRadius: 'var(--radius-sm)',
+                    overflow: 'hidden',
+                    backgroundColor: 'var(--cream-100)',
+                    flexShrink: 0
+                  }}>
+                    <img 
+                      src={itemImg} 
+                      alt={item.name} 
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = '/uploads/chocolate-crunch-pb.jpg';
+                      }}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                    />
                   </div>
 
-                  {/* Pricing and Quantity Controls */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                      <span style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--cacao-950)' }}>
-                        ₹{item.selling_price * item.quantity}
-                      </span>
-                      {item.mrp > item.selling_price && (
-                        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
-                          ₹{item.mrp * item.quantity}
+                  {/* Details */}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <h3 style={{ fontSize: '1.08rem', color: 'var(--cacao-950)', marginBottom: '4px' }}>
+                          {item.name}
+                        </h3>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                          {item.weight || '500g'} • {item.pieces_per_pack || 40} pieces ({item.selling_unit || 'BOX'})
                         </span>
-                      )}
+                      </div>
+
+                      <button
+                        onClick={() => removeItem(itemId)}
+                        style={{ color: 'var(--text-muted)', padding: '4px', cursor: 'pointer', background: 'none', border: 'none' }}
+                        title="Remove item"
+                      >
+                        <Trash2 size={18} />
+                      </button>
                     </div>
 
-                    {/* Quantity Stepper */}
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      border: '1.5px solid var(--border-medium)',
-                      borderRadius: 'var(--radius-full)',
-                      overflow: 'hidden'
-                    }}>
-                      <button
-                        onClick={() => updateQuantity(item.product_id, -1)}
-                        style={{ padding: '6px 12px', color: 'var(--cacao-900)' }}
-                      >
-                        <Minus size={14} />
-                      </button>
-                      <span style={{ padding: '0 10px', fontWeight: '700', fontSize: '0.9rem' }}>
-                        {item.quantity}
-                      </span>
-                      <button
-                        onClick={() => updateQuantity(item.product_id, 1)}
-                        style={{ padding: '6px 12px', color: 'var(--cacao-900)' }}
-                      >
-                        <Plus size={14} />
-                      </button>
+                    {/* Pricing and Quantity Controls */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', flexWrap: 'wrap', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                        <span style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--cacao-950)' }}>
+                          ₹{(itemSellingPrice * itemQty).toFixed(0)}
+                        </span>
+                        {itemMrp > itemSellingPrice && (
+                          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
+                            ₹{(itemMrp * itemQty).toFixed(0)}
+                          </span>
+                        )}
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                          (₹{itemSellingPrice.toFixed(0)} / pack)
+                        </span>
+                      </div>
+
+                      {/* Quantity Stepper */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        border: '1.5px solid var(--border-medium)',
+                        borderRadius: 'var(--radius-full)',
+                        overflow: 'hidden',
+                        backgroundColor: 'var(--cream-50)'
+                      }}>
+                        <button
+                          onClick={() => updateQuantity(itemId, -1)}
+                          style={{ padding: '6px 12px', color: 'var(--cacao-900)', background: 'none', border: 'none', cursor: 'pointer' }}
+                          title="Decrease quantity"
+                        >
+                          <Minus size={14} />
+                        </button>
+                        <span style={{ padding: '0 10px', fontWeight: '700', fontSize: '0.9rem', minWidth: '24px', textAlign: 'center' }}>
+                          {itemQty}
+                        </span>
+                        <button
+                          onClick={() => updateQuantity(itemId, 1)}
+                          style={{ padding: '6px 12px', color: 'var(--cacao-900)', background: 'none', border: 'none', cursor: 'pointer' }}
+                          title="Increase quantity"
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
 
           {/* Order Summary & Coupon Card */}
@@ -223,27 +342,86 @@ export default function Cart({ onNavigate }) {
               Order Breakdown
             </h3>
 
-            {/* Direct to Payment Coupon Notice */}
+            {/* Interactive Coupon Box */}
             <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '12px 14px',
+              padding: '16px',
               backgroundColor: 'var(--cream-100)',
-              borderRadius: 'var(--radius-sm)',
+              borderRadius: 'var(--radius-md)',
               border: '1px solid var(--border-subtle)',
-              color: 'var(--cacao-900)',
-              fontSize: '0.86rem',
               marginBottom: '20px'
             }}>
-              <Tag size={16} style={{ color: 'var(--peanut-gold-700)', flexShrink: 0 }} />
-              <span>
-                {appliedCoupon ? (
-                  <span>Coupon <strong>{appliedCoupon.code}</strong> applied! You can manage it directly in the <strong>Payment Section</strong> at checkout.</span>
-                ) : (
-                  <span>Have a discount coupon? You can apply it directly in the <strong>Payment Section</strong> at checkout!</span>
-                )}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                <Tag size={16} style={{ color: 'var(--peanut-gold-700)' }} />
+                <span style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--cacao-950)' }}>
+                  Promo Coupon
+                </span>
+              </div>
+
+              {activeCoupon ? (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  backgroundColor: '#FFFFFF',
+                  padding: '8px 12px',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--success-color)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Check size={16} style={{ color: 'var(--success-color)' }} />
+                    <span style={{ fontWeight: '700', color: 'var(--cacao-950)', fontSize: '0.88rem' }}>
+                      {activeCoupon.code}
+                    </span>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--success-color)', fontWeight: '600' }}>
+                      (-₹{discountAmount.toFixed(0)})
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleRemoveCoupon}
+                    style={{ background: 'none', border: 'none', color: 'var(--danger-color)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
+                    title="Remove coupon"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleApplyCoupon} style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    placeholder="e.g. CRUNCH50 or WELCOME10"
+                    value={couponCodeInput}
+                    onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1.5px solid var(--border-medium)',
+                      fontSize: '0.88rem',
+                      textTransform: 'uppercase',
+                      backgroundColor: '#FFFFFF'
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={applyingCoupon || !couponCodeInput.trim()}
+                    className="btn btn-primary btn-sm"
+                    style={{ padding: '8px 14px', minWidth: '70px' }}
+                  >
+                    {applyingCoupon ? '...' : 'Apply'}
+                  </button>
+                </form>
+              )}
+
+              {couponMsg.text && (
+                <div style={{
+                  fontSize: '0.8rem',
+                  marginTop: '8px',
+                  color: couponMsg.type === 'error' ? 'var(--danger-color)' : 'var(--success-color)',
+                  fontWeight: '600'
+                }}>
+                  {couponMsg.text}
+                </div>
+              )}
             </div>
 
             {/* Cost Breakdown Lines */}
@@ -258,10 +436,10 @@ export default function Cart({ onNavigate }) {
                 <span>₹{subtotal.toFixed(2)}</span>
               </div>
 
-              {(discountAmount > 0 || (appliedCoupon && (appliedCoupon.discount_amount > 0 || appliedCoupon.discount > 0))) && (
+              {discountAmount > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--success-color)', fontWeight: '600' }}>
-                  <span>Coupon Discount ({appliedCoupon?.code})</span>
-                  <span>-₹{(discountAmount || appliedCoupon?.discount_amount || appliedCoupon?.discount || 0).toFixed(2)}</span>
+                  <span>Coupon Discount ({activeCoupon?.code})</span>
+                  <span>-₹{discountAmount.toFixed(2)}</span>
                 </div>
               )}
 
@@ -274,6 +452,13 @@ export default function Cart({ onNavigate }) {
                 <span>Taxes & Packaging</span>
                 <span style={{ color: 'var(--success-color)', fontWeight: '600' }}>Included</span>
               </div>
+
+              {totalMrp > subtotal && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--success-color)', fontSize: '0.85rem' }}>
+                  <span>Product Savings</span>
+                  <span>₹{(totalMrp - subtotal).toFixed(2)}</span>
+                </div>
+              )}
 
               <div style={{
                 display: 'flex',

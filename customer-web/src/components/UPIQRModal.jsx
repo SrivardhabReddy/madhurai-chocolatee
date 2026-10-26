@@ -8,9 +8,23 @@ export default function UPIQRModal({ order, paymentData, onClose, onSuccess }) {
   const [simulationStatus, setSimulationStatus] = useState('');
 
   const copyVpa = () => {
-    navigator.clipboard.writeText(paymentData.upiVpa || '9676823113-2@ybl');
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    const vpa = paymentData?.upiVpa || '9676823113-2@ybl';
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(vpa);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = vpa;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (e) {
+      console.warn('Clipboard copy error:', e);
+    }
   };
 
   // Automatic background status polling to detect completed payment
@@ -37,15 +51,16 @@ export default function UPIQRModal({ order, paymentData, onClose, onSuccess }) {
   }, [order?.id, onClose, onSuccess]);
 
   const handleSimulatePayment = async () => {
+    if (!order?.id) return;
     setVerifying(true);
     setSimulationStatus('Verifying payment on server...');
     try {
-      const res = await api.simulatePaymentSuccess(order.id, paymentData.paymentId);
+      const res = await api.simulatePaymentSuccess(order.id, paymentData?.paymentId);
       if (res.success) {
         setSimulationStatus('Payment captured and verified! Closing window...');
         setTimeout(() => {
           if (onClose) onClose();
-          if (onSuccess) onSuccess(res);
+          if (onSuccess) onSuccess(res.data || res);
         }, 700);
       } else {
         setSimulationStatus(res.message || 'Payment verification failed.');
@@ -102,7 +117,7 @@ export default function UPIQRModal({ order, paymentData, onClose, onSuccess }) {
           Scan to Pay with UPI
         </h3>
         <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-          Order <strong>{order.order_number}</strong> • Amount: <strong style={{ color: 'var(--cacao-950)', fontSize: '1.1rem' }}>₹{paymentData.amount}</strong>
+          Order <strong>{order?.order_number || 'Order'}</strong> • Amount: <strong style={{ color: 'var(--cacao-950)', fontSize: '1.1rem' }}>₹{paymentData?.amount || order?.total_amount || 0}</strong>
         </p>
 
         {/* Dynamic QR Code */}
@@ -115,7 +130,7 @@ export default function UPIQRModal({ order, paymentData, onClose, onSuccess }) {
           border: '2px solid var(--peanut-gold-400)',
           marginBottom: '20px'
         }}>
-          {paymentData.qrDataUrl ? (
+          {paymentData?.qrDataUrl ? (
             <img
               src={paymentData.qrDataUrl}
               alt="Dynamic UPI Payment QR"
@@ -138,7 +153,7 @@ export default function UPIQRModal({ order, paymentData, onClose, onSuccess }) {
         </div>
 
         {/* Mobile Direct Pay Action if on phone */}
-        {paymentData.upiQrString && (
+        {paymentData?.upiQrString && (
           <div style={{ marginBottom: '14px' }}>
             <a
               href={paymentData.upiQrString}
@@ -176,7 +191,7 @@ export default function UPIQRModal({ order, paymentData, onClose, onSuccess }) {
           marginBottom: '20px',
           border: '1px solid var(--border-medium)'
         }}>
-          <span style={{ color: 'var(--text-secondary)' }}>UPI ID: <strong>{paymentData.upiVpa || '9676823113-2@ybl'}</strong></span>
+          <span style={{ color: 'var(--text-secondary)' }}>UPI ID: <strong>{paymentData?.upiVpa || '9676823113-2@ybl'}</strong></span>
           <button
             onClick={copyVpa}
             style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--peanut-gold-700)', fontWeight: '700' }}

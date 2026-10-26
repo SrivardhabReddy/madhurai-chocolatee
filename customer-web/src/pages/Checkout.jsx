@@ -161,8 +161,9 @@ export default function Checkout({ onNavigate }) {
   const activeCoupon = appliedCoupon || summary?.coupon;
   const activeDiscount = Number(summary?.discountAmount || summary?.coupon?.discount || summary?.coupon?.discount_amount || appliedCoupon?.discount_amount || appliedCoupon?.discount || 0);
 
-  const deliveryFee = summary?.delivery?.freeDelivery ? 0 : (summary?.deliveryCharge !== undefined ? Number(summary.deliveryCharge) : 40);
-  const isFreeDelivery = summary?.delivery?.freeDelivery || deliveryFee === 0;
+  const totalQuantity = cartItems.reduce((acc, i) => acc + (parseInt(i.quantity, 10) || 1), 0);
+  const isFreeDelivery = summary?.delivery?.freeDelivery ?? (totalQuantity >= 5 || calculatedSubtotal >= 500);
+  const deliveryFee = isFreeDelivery ? 0 : (summary?.deliveryCharge !== undefined ? Number(summary.deliveryCharge) : 40);
 
   // The final total is mathematically guaranteed to be displaySubtotal - activeDiscount + deliveryFee
   const calculatedFinalTotal = Math.max(0, displaySubtotal - activeDiscount + deliveryFee);
@@ -333,10 +334,11 @@ export default function Checkout({ onNavigate }) {
     }
   };
 
-  const handlePaymentSuccess = () => {
+  const handlePaymentSuccess = (verifiedData) => {
     setUpiModalOpen(false);
     clearCart();
-    onNavigate('order_success', { orderId: createdOrder.id });
+    const finalOrderId = verifiedData?.order_id || verifiedData?.id || createdOrder?.id;
+    onNavigate('order_success', { orderId: finalOrderId });
   };
 
   if (cartItems.length === 0) {

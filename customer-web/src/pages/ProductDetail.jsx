@@ -16,7 +16,7 @@ import { api } from '../services/api.js';
 import { useCart } from '../context/CartContext.jsx';
 import DeliveryChecker from '../components/DeliveryChecker.jsx';
 
-export default function ProductDetail({ slug, onNavigate }) {
+export default function ProductDetail({ slug, id, onNavigate }) {
   const { addItem, toggleWishlist, isWishlisted } = useCart();
   const [product, setProduct] = useState(null);
   const [selectedImage, setSelectedImage] = useState('');
@@ -26,23 +26,70 @@ export default function ProductDetail({ slug, onNavigate }) {
   const [activeTab, setActiveTab] = useState('description'); // 'description', 'ingredients', 'nutrition'
   const [addedToast, setAddedToast] = useState(false);
 
+  const fallbackProduct = {
+    id: 'prod_main_pb_crunch',
+    product_id: 'prod_main_pb_crunch',
+    name: 'Chocolate Crunch Peanut Butter Inside',
+    slug: 'chocolate-crunch-peanut-butter-inside',
+    weight: '500g',
+    pieces_per_pack: 40,
+    mrp: 450,
+    selling_price: 400,
+    discount: 11.11,
+    description: 'Experience pure artisanal bliss: crisp dark chocolate shell filled to the brim with roasted golden peanut butter, crushed crunchy peanut nibs, and a whisper of Madurai sea salt. Each piece is individually wrapped for peak freshness.',
+    image_url: '/chocolate-crunch-pb.jpg',
+    images: [{ image_url: '/chocolate-crunch-pb.jpg' }],
+    stock: 50,
+    selling_unit: 'BOX',
+    ingredients: 'Dark Cocoa Mass (55%), Roasted Peanuts (28%), Brown Cane Sugar, Vegetable Fat, Emulsifier (INS 322 Sunflower Lecithin), Natural Madagascan Vanilla Extract, Sea Salt. Contains Peanuts. 0% Palm Oil & Zero Trans Fat.'
+  };
+
   useEffect(() => {
     setLoading(true);
-    api.getProductBySlug(slug)
-      .then(res => {
-        if (res.success && res.data) {
-          setProduct(res.data);
-          const primary = res.data.primary_image?.image_url || res.data.images?.[0]?.image_url || '/chocolate-crunch-pb.jpg';
-          setSelectedImage(primary);
-        } else {
-          setError('Product not found.');
+    setError('');
+
+    const resolveProduct = async () => {
+      try {
+        const targetIdentifier = slug || id;
+        if (targetIdentifier) {
+          const res = await api.getProductBySlug(targetIdentifier).catch(() => null);
+          if (res?.success && res?.data) {
+            setProduct(res.data);
+            const primary = res.data.primary_image?.image_url || res.data.images?.[0]?.image_url || '/chocolate-crunch-pb.jpg';
+            setSelectedImage(primary);
+            setLoading(false);
+            return;
+          }
         }
-      })
-      .catch(err => {
-        setError(err.message || 'Error loading product.');
-      })
-      .finally(() => setLoading(false));
-  }, [slug]);
+
+        // Try getting catalog to find product by id or slug or fallback
+        const catRes = await api.getProducts().catch(() => null);
+        if (catRes?.success && Array.isArray(catRes.data) && catRes.data.length > 0) {
+          const matched = catRes.data.find(p => 
+            p.slug === targetIdentifier || 
+            String(p.id) === String(targetIdentifier) || 
+            String(p.id) === String(id)
+          ) || catRes.data[0];
+          setProduct(matched);
+          const primary = matched.primary_image?.image_url || matched.image_url || matched.images?.[0]?.image_url || '/chocolate-crunch-pb.jpg';
+          setSelectedImage(primary);
+          setLoading(false);
+          return;
+        }
+
+        // Fallback product
+        setProduct(fallbackProduct);
+        setSelectedImage('/chocolate-crunch-pb.jpg');
+      } catch (err) {
+        setProduct(fallbackProduct);
+        setSelectedImage('/chocolate-crunch-pb.jpg');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    resolveProduct();
+  }, [slug, id]);
 
   if (loading) {
     return (
@@ -116,6 +163,10 @@ export default function ProductDetail({ slug, onNavigate }) {
               <img
                 src={selectedImage}
                 alt={product.name}
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = '/chocolate-crunch-pb.jpg';
+                }}
                 style={{
                   position: 'absolute',
                   top: 0,
@@ -150,7 +201,15 @@ export default function ProductDetail({ slug, onNavigate }) {
                       opacity: selectedImage === img.image_url ? 1 : 0.7
                     }}
                   >
-                    <img src={img.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img
+                      src={img.image_url}
+                      alt=""
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = '/chocolate-crunch-pb.jpg';
+                      }}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
                   </button>
                 ))}
               </div>

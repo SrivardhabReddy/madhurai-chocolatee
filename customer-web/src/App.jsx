@@ -120,7 +120,11 @@ export default function App() {
           />
         )}
         {currentPage === 'product_detail' && (
-          <ProductDetail slug={pageParams.slug || 'chocolate-crunch-peanut-butter-inside'} onNavigate={navigate} />
+          <ProductDetail 
+            slug={pageParams.slug || 'chocolate-crunch-peanut-butter-inside'} 
+            id={pageParams.id} 
+            onNavigate={navigate} 
+          />
         )}
         {currentPage === 'cart' && <Cart onNavigate={navigate} />}
         {currentPage === 'checkout' && <Checkout onNavigate={navigate} />}

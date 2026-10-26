@@ -249,7 +249,7 @@ export async function runSeeds() {
   ];
 
   for (const p of products) {
-    const existing = await get('SELECT id FROM products WHERE id = ?', [p.id]);
+    const existing = await get('SELECT id, deleted_at FROM products WHERE id = ?', [p.id]);
     if (!existing) {
       await query(
         `INSERT INTO products (
@@ -275,6 +275,8 @@ export async function runSeeds() {
         'INSERT INTO inventory_transactions (id, product_id, type, quantity, previous_stock, new_stock, reference_id, notes, created_by) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?)',
         [`tx_init_${p.id}`, p.id, 'RESTOCK', p.stock, p.stock, 'INIT-BATCH-2026', 'Initial warehouse stock allocation', 'usr_super_admin']
       );
+    } else if (p.id === 'prod_main_pb_crunch' && existing.deleted_at) {
+      await query('UPDATE products SET deleted_at = NULL, status = "ACTIVE" WHERE id = ?', [p.id]);
     }
   }
 
@@ -428,8 +430,8 @@ export async function runSeeds() {
 
   // 11. Coupons
   const coupons = [
-    { id: 'coup_welcome10', code: 'WELCOME10', desc: '10% OFF on purchase', type: 'PERCENTAGE', val: 10.0, min: 0.0, max: 100.0, limit: 1 },
-    { id: 'coup_crunch50', code: 'CRUNCH50', desc: 'Flat ₹50 OFF on Peanut Butter Crunch boxes', type: 'FIXED', val: 50.0, min: 0.0, max: null, limit: 2 },
+    { id: 'coup_welcome10', code: 'WELCOME10', desc: '10% OFF on purchase above ₹300', type: 'PERCENTAGE', val: 10.0, min: 300.0, max: 100.0, limit: 1 },
+    { id: 'coup_crunch50', code: 'CRUNCH50', desc: 'Flat ₹50 OFF on Peanut Butter Crunch boxes', type: 'FIXED', val: 50.0, min: 400.0, max: null, limit: 2 },
     { id: 'coup_freeship', code: 'FREESHIP', desc: 'Free express shipping on orders', type: 'FIXED', val: 40.0, min: 0.0, max: 60.0, limit: 1 }
   ];
   for (const c of coupons) {

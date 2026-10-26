@@ -15,7 +15,7 @@ export default function ProductCard({ product, onNavigate }) {
       
       {/* Product Image Container */}
       <div 
-        onClick={() => onNavigate('product_detail', { slug: product.slug })}
+        onClick={() => onNavigate('product_detail', { slug: product.slug || product.id, id: product.id })}
         style={{
           position: 'relative',
           paddingTop: '85%',
@@ -27,6 +27,10 @@ export default function ProductCard({ product, onNavigate }) {
         <img
           src={primaryImage}
           alt={product.name}
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = '/chocolate-crunch-pb.jpg';
+          }}
           style={{
             position: 'absolute',
             top: 0,
@@ -121,7 +125,7 @@ export default function ProductCard({ product, onNavigate }) {
 
           {/* Title */}
           <h3 
-            onClick={() => onNavigate('product_detail', { slug: product.slug })}
+            onClick={() => onNavigate('product_detail', { slug: product.slug || product.id, id: product.id })}
             style={{
               fontSize: '1.08rem',
               fontWeight: '700',
