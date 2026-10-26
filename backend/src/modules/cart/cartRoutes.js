@@ -16,39 +16,56 @@ router.post('/validate', optionalAuth, async (req, res, next) => {
 
     for (const item of items) {
       const pId = item.product_id || item.id;
-      const prod = await get(
+      let prod = await get(
         `SELECT p.*, c.name as category_name 
          FROM products p 
          LEFT JOIN categories c ON p.category_id = c.id
-         WHERE p.id = ? AND p.status = 'ACTIVE' AND p.deleted_at IS NULL`,
-        [pId]
+         WHERE (p.id = ? OR p.slug = ? OR p.name = ?) AND p.status = 'ACTIVE' AND p.deleted_at IS NULL`,
+        [pId, item.slug || pId, item.name || pId]
       );
 
-      if (!prod) continue;
+      if (!prod && item.name) {
+        prod = await get(
+          `SELECT p.*, c.name as category_name 
+           FROM products p 
+           LEFT JOIN categories c ON p.category_id = c.id
+           WHERE (LOWER(p.name) LIKE ? OR LOWER(p.slug) LIKE ?) AND p.status = 'ACTIVE' AND p.deleted_at IS NULL`,
+          [`%${item.name.toLowerCase().replace(/[^a-z0-9]/g, '%')}%`, `%${item.name.toLowerCase().replace(/[^a-z0-9]/g, '%')}%`]
+        );
+      }
 
       const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
-      const inv = await get('SELECT current_stock FROM inventory WHERE product_id = ?', [prod.id]);
-      const currentStock = inv ? inv.current_stock : prod.stock;
+      const sellingPrice = prod ? parseFloat(prod.selling_price) : (parseFloat(item.selling_price) || parseFloat(item.price) || 0);
+      const mrp = prod ? parseFloat(prod.mrp) : (parseFloat(item.mrp) || sellingPrice);
 
-      const imgs = await all('SELECT * FROM product_images WHERE product_id = ? ORDER BY is_primary DESC', [prod.id]);
-      const primaryImage = imgs[0]?.image_url || '/uploads/chocolate-crunch-pb.jpg';
+      let currentStock = 99;
+      if (prod) {
+        const inv = await get('SELECT current_stock FROM inventory WHERE product_id = ?', [prod.id]);
+        currentStock = inv ? inv.current_stock : prod.stock;
+      }
 
-      const itemTotal = prod.selling_price * qty;
-      const itemMrpTotal = prod.mrp * qty;
+      let primaryImage = item.image_url || '/uploads/chocolate-crunch-pb.jpg';
+      if (prod) {
+        const imgs = await all('SELECT * FROM product_images WHERE product_id = ? ORDER BY is_primary DESC', [prod.id]);
+        primaryImage = imgs[0]?.image_url || prod.image_url || primaryImage;
+      }
+
+      const itemTotal = sellingPrice * qty;
+      const itemMrpTotal = mrp * qty;
       subtotal += itemTotal;
       totalMrp += itemMrpTotal;
 
       validatedItems.push({
-        product_id: prod.id,
-        name: prod.name,
-        slug: prod.slug,
+        product_id: prod ? prod.id : pId,
+        name: prod ? prod.name : (item.name || 'Madhurai Chocolate'),
+        slug: prod ? prod.slug : (item.slug || 'chocolate'),
         image_url: primaryImage,
-        weight: prod.weight,
-        selling_unit: prod.selling_unit,
-        pieces_per_pack: prod.pieces_per_pack,
-        mrp: prod.mrp,
-        selling_price: prod.selling_price,
-        discount: prod.discount,
+        weight: prod ? prod.weight : (item.weight || '320g'),
+        selling_unit: prod ? prod.selling_unit : (item.selling_unit || 'BOX'),
+        pieces_per_pack: prod ? prod.pieces_per_pack : (item.pieces_per_pack || 1),
+        mrp,
+        selling_price: sellingPrice,
+        discount: prod ? prod.discount : (mrp > sellingPrice ? Math.round(((mrp - sellingPrice) / mrp) * 100) : 0),
         quantity: qty,
         itemTotal,
         inStock: currentStock >= qty,

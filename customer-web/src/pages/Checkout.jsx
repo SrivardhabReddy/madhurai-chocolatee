@@ -132,6 +132,8 @@ export default function Checkout({ onNavigate }) {
       setLoadingSummary(true);
       const mappedItems = cartItems.map(i => ({
         product_id: i.product_id || i.id,
+        name: i.name,
+        slug: i.slug,
         quantity: Math.max(1, parseInt(i.quantity, 10) || 1),
         selling_price: parseFloat(i.selling_price) || parseFloat(i.price) || 0,
         mrp: parseFloat(i.mrp) || 0
@@ -140,11 +142,33 @@ export default function Checkout({ onNavigate }) {
         .then(res => {
           if (res.success && res.data) {
             setSummary(res.data);
+            if (res.data.coupon && !appliedCoupon) {
+              setAppliedCoupon(res.data.coupon);
+            }
           }
         })
         .finally(() => setLoadingSummary(false));
     }
   }, [cartItems, formData.pincode, appliedCoupon]);
+
+  const calculatedSubtotal = cartItems.reduce((acc, i) => {
+    const price = parseFloat(i.selling_price) || parseFloat(i.price) || 0;
+    const qty = Math.max(1, parseInt(i.quantity, 10) || 1);
+    return acc + (price * qty);
+  }, 0);
+  const displaySubtotal = (summary && Number(summary.subtotal) > 0) ? Number(summary.subtotal) : calculatedSubtotal;
+
+  const activeCoupon = appliedCoupon || summary?.coupon;
+  const activeDiscount = Number(summary?.discountAmount || summary?.coupon?.discount || summary?.coupon?.discount_amount || appliedCoupon?.discount_amount || appliedCoupon?.discount || 0);
+
+  const deliveryFee = summary?.delivery?.freeDelivery ? 0 : (summary?.deliveryCharge !== undefined ? Number(summary.deliveryCharge) : 40);
+  const isFreeDelivery = summary?.delivery?.freeDelivery || deliveryFee === 0;
+
+  // The final total is mathematically guaranteed to be displaySubtotal - activeDiscount + deliveryFee
+  const calculatedFinalTotal = Math.max(0, displaySubtotal - activeDiscount + deliveryFee);
+  const finalTotalDisplay = (summary && Number(summary.subtotal) > 0 && summary.finalTotal !== undefined && Math.abs(Number(summary.finalTotal) - calculatedFinalTotal) < 1)
+    ? Number(summary.finalTotal)
+    : calculatedFinalTotal;
 
   const handleApplyCoupon = async (e) => {
     if (e) e.preventDefault();
@@ -154,24 +178,29 @@ export default function Checkout({ onNavigate }) {
     setCouponApplying(true);
 
     try {
-      const calcSubtotal = cartItems.reduce((acc, i) => {
-        const price = parseFloat(i.selling_price) || parseFloat(i.price) || 0;
-        const qty = Math.max(1, parseInt(i.quantity, 10) || 1);
-        return acc + (price * qty);
-      }, 0);
-      const currentSubtotal = (summary && summary.subtotal > 0) ? summary.subtotal : calcSubtotal;
       const mappedItems = cartItems.map(i => ({
         product_id: i.product_id || i.id,
+        name: i.name,
+        slug: i.slug,
         quantity: Math.max(1, parseInt(i.quantity, 10) || 1),
-        selling_price: parseFloat(i.selling_price) || parseFloat(i.price) || 0
+        selling_price: parseFloat(i.selling_price) || parseFloat(i.price) || 0,
+        mrp: parseFloat(i.mrp) || 0
       }));
 
-      const res = await api.validateCoupon(couponInput.trim(), currentSubtotal, mappedItems, formData.pincode);
+      const res = await api.validateCoupon(couponInput.trim(), displaySubtotal, mappedItems, formData.pincode);
       if (res.success && res.data) {
         setAppliedCoupon(res.data);
-        const savedAmt = (res.data.discount_amount || res.data.discount || 0).toFixed(2);
+        const savedAmt = Number(res.data.discount_amount || res.data.discount || 0).toFixed(2);
         setCouponSuccess(`Coupon ${res.data.code} applied! Saved ₹${savedAmt}.`);
         setCouponError('');
+
+        // Refresh cart summary with applied coupon
+        api.validateCart(mappedItems, formData.pincode, res.data.code)
+          .then(cRes => {
+            if (cRes.success && cRes.data) {
+              setSummary(cRes.data);
+            }
+          });
       } else {
         setCouponError(res.message || 'Invalid coupon.');
       }
@@ -185,12 +214,26 @@ export default function Checkout({ onNavigate }) {
   const handleRemoveCoupon = () => {
     if (removeCoupon) {
       removeCoupon();
-    } else {
-      setAppliedCoupon(null);
     }
+    setAppliedCoupon(null);
     setCouponInput('');
     setCouponSuccess('');
     setCouponError('');
+
+    const mappedItems = cartItems.map(i => ({
+      product_id: i.product_id || i.id,
+      name: i.name,
+      slug: i.slug,
+      quantity: Math.max(1, parseInt(i.quantity, 10) || 1),
+      selling_price: parseFloat(i.selling_price) || parseFloat(i.price) || 0,
+      mrp: parseFloat(i.mrp) || 0
+    }));
+    api.validateCart(mappedItems, formData.pincode, '')
+      .then(res => {
+        if (res.success && res.data) {
+          setSummary(res.data);
+        }
+      });
   };
 
   const handleInputChange = (e) => {
@@ -241,10 +284,16 @@ export default function Checkout({ onNavigate }) {
     setOrderSubmitting(true);
 
     try {
-      const activeCouponCode = appliedCoupon?.code ? String(appliedCoupon.code).trim().toUpperCase() : null;
+      const activeCouponCode = activeCoupon?.code ? String(activeCoupon.code).trim().toUpperCase() : null;
       const orderPayload = {
         ...formData,
-        items: cartItems.map(i => ({ product_id: i.product_id || i.id, quantity: Math.max(1, parseInt(i.quantity, 10) || 1) })),
+        items: cartItems.map(i => ({
+          product_id: i.product_id || i.id,
+          name: i.name,
+          slug: i.slug,
+          selling_price: parseFloat(i.selling_price) || parseFloat(i.price) || 0,
+          quantity: Math.max(1, parseInt(i.quantity, 10) || 1)
+        })),
         coupon_code: activeCouponCode,
         payment_method: paymentMethod
       };
@@ -564,14 +613,14 @@ export default function Checkout({ onNavigate }) {
                         Apply Coupon Discount
                       </span>
                     </div>
-                    {appliedCoupon && (
+                    {activeCoupon && (
                       <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#047857', backgroundColor: '#D1FAE5', padding: '2px 8px', borderRadius: '4px' }}>
                         APPLIED
                       </span>
                     )}
                   </div>
 
-                  {appliedCoupon ? (
+                  {activeCoupon ? (
                     <div style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -585,7 +634,7 @@ export default function Checkout({ onNavigate }) {
                       fontWeight: '600'
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span>🏷️ <strong>{appliedCoupon.code}</strong> applied! Saved ₹{(summary?.discountAmount || appliedCoupon.discount_amount || appliedCoupon.discount || 0).toFixed(2)}</span>
+                        <span>🏷️ <strong>{activeCoupon.code}</strong> applied! Saved ₹{activeDiscount.toFixed(2)}</span>
                       </div>
                       <button
                         type="button"
@@ -781,14 +830,14 @@ export default function Checkout({ onNavigate }) {
                         Have a Coupon Code?
                       </span>
                     </div>
-                    {appliedCoupon && (
+                    {activeCoupon && (
                       <span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#047857', backgroundColor: '#D1FAE5', padding: '2px 6px', borderRadius: '4px' }}>
                         APPLIED
                       </span>
                     )}
                   </div>
 
-                  {appliedCoupon ? (
+                  {activeCoupon ? (
                     <div style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -802,7 +851,7 @@ export default function Checkout({ onNavigate }) {
                       fontWeight: '600'
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>🏷️ <strong>{appliedCoupon.code}</strong> (-₹{(summary?.discountAmount || appliedCoupon.discount_amount || appliedCoupon.discount || 0).toFixed(0)})</span>
+                        <span>🏷️ <strong>{activeCoupon.code}</strong> (-₹{activeDiscount.toFixed(0)})</span>
                       </div>
                       <button
                         type="button"
@@ -860,19 +909,19 @@ export default function Checkout({ onNavigate }) {
                 <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.92rem', marginBottom: '24px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
                     <span>Subtotal</span>
-                    <span>₹{summary?.subtotal || cartItems.reduce((acc, i) => acc + (parseFloat(i.selling_price) || parseFloat(i.price) || 0) * (parseInt(i.quantity, 10) || 1), 0)}</span>
+                    <span>₹{displaySubtotal.toFixed(0)}</span>
                   </div>
 
-                  {(summary?.discountAmount > 0 || (appliedCoupon && (appliedCoupon.discount_amount > 0 || appliedCoupon.discount > 0))) && (
+                  {activeDiscount > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--success-color)', fontWeight: '600' }}>
-                      <span>Discount ({appliedCoupon?.code})</span>
-                      <span>-₹{(summary?.discountAmount || appliedCoupon?.discount_amount || appliedCoupon?.discount || 0).toFixed(2)}</span>
+                      <span>Coupon Discount ({activeCoupon?.code || 'Applied'})</span>
+                      <span>-₹{activeDiscount.toFixed(2)}</span>
                     </div>
                   )}
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
                     <span>Shipping Fee</span>
-                    <span>{summary?.delivery?.freeDelivery ? <strong style={{ color: 'var(--success-color)' }}>FREE</strong> : `₹${summary?.deliveryCharge || 40}`}</span>
+                    <span>{isFreeDelivery ? <strong style={{ color: 'var(--success-color)' }}>FREE</strong> : `₹${deliveryFee}`}</span>
                   </div>
 
                   <div style={{
@@ -887,9 +936,7 @@ export default function Checkout({ onNavigate }) {
                   }}>
                     <span>Total Amount</span>
                     <span>
-                      ₹{summary?.finalTotal !== undefined 
-                        ? Number(summary.finalTotal).toFixed(2)
-                        : Math.max(0, (summary?.subtotal || cartItems.reduce((acc, i) => acc + (parseFloat(i.selling_price) || parseFloat(i.price) || 0) * (parseInt(i.quantity, 10) || 1), 0)) - (appliedCoupon?.discount_amount || appliedCoupon?.discount || 0) + (summary?.deliveryCharge || 40)).toFixed(2)}
+                      ₹{finalTotalDisplay.toFixed(2)}
                     </span>
                   </div>
                 </div>

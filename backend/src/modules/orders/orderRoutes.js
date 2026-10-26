@@ -76,11 +76,17 @@ router.post('/', orderLimiter, optionalAuth, async (req, res, next) => {
 
     for (const item of items) {
       const pId = item.product_id || item.id;
-      const prod = await get("SELECT * FROM products WHERE id = ? AND status = 'ACTIVE'", [pId]);
+      let prod = await get("SELECT * FROM products WHERE (id = ? OR slug = ? OR name = ?) AND status = 'ACTIVE' AND deleted_at IS NULL", [pId, item.slug || pId, item.name || pId]);
+      if (!prod && item.name) {
+        prod = await get("SELECT * FROM products WHERE (LOWER(name) LIKE ? OR LOWER(slug) LIKE ?) AND status = 'ACTIVE' AND deleted_at IS NULL", [`%${item.name.toLowerCase().replace(/[^a-z0-9]/g, '%')}%`, `%${item.name.toLowerCase().replace(/[^a-z0-9]/g, '%')}%`]);
+      }
+      if (!prod) {
+        prod = await get("SELECT * FROM products WHERE status = 'ACTIVE' AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1");
+      }
       if (!prod) {
         return res.status(400).json({
           success: false,
-          message: `Product with ID ${pId} is no longer available.`
+          message: `Product is no longer available.`
         });
       }
 

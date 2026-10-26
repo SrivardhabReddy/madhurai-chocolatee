@@ -74,8 +74,10 @@ export default function Cart({ onNavigate }) {
   const subtotal = (serverSummary && serverSummary.subtotal > 0) ? serverSummary.subtotal : fallbackSubtotal;
   const totalMrp = serverSummary?.totalMrp || cartItems.reduce((acc, i) => acc + (parseFloat(i.mrp) || fallbackSubtotal) * (parseInt(i.quantity, 10) || 1), 0);
   const discountAmount = serverSummary?.discountAmount || (appliedCoupon ? (appliedCoupon.discount_amount || appliedCoupon.discount || 0) : 0);
-  const deliveryCharge = serverSummary?.deliveryCharge !== undefined ? serverSummary.deliveryCharge : 40;
-  const finalTotal = serverSummary?.finalTotal !== undefined ? serverSummary.finalTotal : Math.max(0, subtotal - discountAmount + deliveryCharge);
+  const calculatedCartTotal = Math.max(0, subtotal - discountAmount + deliveryCharge);
+  const finalTotal = (serverSummary && serverSummary.subtotal > 0 && serverSummary.finalTotal !== undefined && Math.abs(serverSummary.finalTotal - calculatedCartTotal) < 1)
+    ? serverSummary.finalTotal
+    : calculatedCartTotal;
   const isFreeDelivery = serverSummary?.delivery?.freeDelivery || false;
   const totalQuantity = cartItems.reduce((acc, i) => acc + (parseInt(i.quantity, 10) || 1), 0);
 
