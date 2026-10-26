@@ -221,9 +221,9 @@ ON CONFLICT (id) DO NOTHING;
 
 -- Promotional Coupons
 INSERT INTO coupons (id, code, description, discount_type, discount_value, min_order_amount, max_discount_amount, is_active, per_customer_limit) VALUES
-('coup_welcome10', 'WELCOME10', 'Get 10% OFF on your first purchase above ₹300', 'PERCENTAGE', 10.0, 300.00, 100.00, 1, 1),
-('coup_crunch50', 'CRUNCH50', 'Flat ₹50 OFF on Peanut Butter Crunch boxes over ₹400', 'FIXED', 50.0, 400.00, NULL, 1, 2),
-('coup_freeship', 'FREESHIP', 'Free express shipping on any order above ₹250', 'FIXED', 40.0, 250.00, 60.00, 1, 1)
+('coup_welcome10', 'WELCOME10', 'Get 10% OFF on your purchase', 'PERCENTAGE', 10.0, 0.00, 100.00, 1, 1),
+('coup_crunch50', 'CRUNCH50', 'Flat ₹50 OFF on Peanut Butter Crunch boxes', 'FIXED', 50.0, 0.00, NULL, 1, 2),
+('coup_freeship', 'FREESHIP', 'Free express shipping on your order', 'FIXED', 40.0, 0.00, 60.00, 1, 1)
 ON CONFLICT (id) DO NOTHING;
 
 -- Business Settings

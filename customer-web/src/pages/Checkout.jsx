@@ -8,8 +8,7 @@ import {
   CheckCircle, 
   AlertCircle, 
   ArrowLeft,
-  Truck,
-  Tag
+  Truck
 } from 'lucide-react';
 import { useCart } from '../context/CartContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -17,15 +16,7 @@ import { api } from '../services/api.js';
 import UPIQRModal from '../components/UPIQRModal.jsx';
 
 export default function Checkout({ onNavigate }) {
-  const { 
-    cartItems, 
-    clearCart, 
-    deliveryPincode, 
-    setDeliveryPincode, 
-    appliedCoupon,
-    setAppliedCoupon,
-    removeCoupon
-  } = useCart();
+  const { cartItems, clearCart, deliveryPincode, setDeliveryPincode, appliedCoupon } = useCart();
   const { user } = useAuth();
 
   // Customer Form State
@@ -57,12 +48,6 @@ export default function Checkout({ onNavigate }) {
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [orderSubmitting, setOrderSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
-
-  // Coupon State in Checkout
-  const [checkoutCouponCode, setCheckoutCouponCode] = useState('');
-  const [couponLoading, setCouponLoading] = useState(false);
-  const [couponError, setCouponError] = useState('');
-  const [couponSuccess, setCouponSuccess] = useState('');
 
   // UPI QR Modal State
   const [upiModalOpen, setUpiModalOpen] = useState(false);
@@ -154,41 +139,6 @@ export default function Checkout({ onNavigate }) {
       state: addr.state,
       pincode: addr.pincode
     }));
-  };
-
-  const handleApplyCoupon = async (e) => {
-    if (e) e.preventDefault();
-    if (!checkoutCouponCode.trim()) return;
-    setCouponError('');
-    setCouponSuccess('');
-    setCouponLoading(true);
-
-    try {
-      const currentSubtotal = summary?.subtotal || cartItems.reduce((acc, i) => acc + i.selling_price * i.quantity, 0);
-      const res = await api.validateCoupon(checkoutCouponCode.trim(), currentSubtotal, cartItems, formData.pincode);
-      if (res.success && res.data) {
-        setAppliedCoupon(res.data);
-        setCouponSuccess(`Coupon ${res.data.code} applied! Saved ₹${res.data.discount_amount.toFixed(2)}.`);
-        setCheckoutCouponCode('');
-      } else {
-        setCouponError(res.message || 'Invalid coupon.');
-      }
-    } catch (err) {
-      setCouponError(err.message || 'Coupon could not be applied.');
-    } finally {
-      setCouponLoading(false);
-    }
-  };
-
-  const handleRemoveCoupon = () => {
-    if (removeCoupon) {
-      removeCoupon();
-    } else {
-      setAppliedCoupon(null);
-    }
-    setCheckoutCouponCode('');
-    setCouponSuccess('');
-    setCouponError('');
   };
 
   const handlePlaceOrder = async (e) => {
@@ -653,70 +603,6 @@ export default function Checkout({ onNavigate }) {
                       </span>
                     </div>
                   ))}
-                </div>
-
-                {/* Promo / Coupon Box in Checkout */}
-                <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '16px', marginBottom: '16px' }}>
-                  {appliedCoupon ? (
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '10px 14px',
-                      backgroundColor: '#D1FAE5',
-                      borderRadius: 'var(--radius-sm)',
-                      border: '1px solid #A7F3D0',
-                      color: '#065F46',
-                      fontSize: '0.88rem',
-                      fontWeight: '600'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Tag size={16} />
-                        <span>
-                          Coupon <strong>{appliedCoupon.code}</strong> applied (-₹{(summary?.discountAmount || appliedCoupon.discount_amount || appliedCoupon.discount || 0).toFixed(0)})
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleRemoveCoupon}
-                        style={{ color: 'var(--danger-color)', fontSize: '0.8rem', fontWeight: '700', background: 'none', border: 'none', cursor: 'pointer' }}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ) : (
-                    <div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <input
-                          type="text"
-                          placeholder="Promo / Coupon Code"
-                          value={checkoutCouponCode}
-                          onChange={(e) => setCheckoutCouponCode(e.target.value.toUpperCase())}
-                          className="form-input"
-                          style={{ textTransform: 'uppercase', fontSize: '0.85rem', flex: 1, padding: '8px 12px' }}
-                        />
-                        <button
-                          type="button"
-                          onClick={handleApplyCoupon}
-                          disabled={couponLoading || !checkoutCouponCode.trim()}
-                          className="btn btn-outline btn-sm"
-                          style={{ minWidth: '76px', padding: '8px 12px' }}
-                        >
-                          {couponLoading ? '...' : 'APPLY'}
-                        </button>
-                      </div>
-                      {couponError && (
-                        <span style={{ fontSize: '0.8rem', color: 'var(--danger-color)', marginTop: '4px', display: 'block' }}>
-                          {couponError}
-                        </span>
-                      )}
-                      {couponSuccess && (
-                        <span style={{ fontSize: '0.8rem', color: 'var(--success-color)', marginTop: '4px', display: 'block' }}>
-                          {couponSuccess}
-                        </span>
-                      )}
-                    </div>
-                  )}
                 </div>
 
                 {/* Cost Breakdown */}
