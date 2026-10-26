@@ -8,7 +8,8 @@ import {
   CheckCircle, 
   AlertCircle, 
   ArrowLeft,
-  Truck
+  Truck,
+  Tag
 } from 'lucide-react';
 import { useCart } from '../context/CartContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -16,7 +17,7 @@ import { api } from '../services/api.js';
 import UPIQRModal from '../components/UPIQRModal.jsx';
 
 export default function Checkout({ onNavigate }) {
-  const { cartItems, clearCart, deliveryPincode, setDeliveryPincode, appliedCoupon } = useCart();
+  const { cartItems, clearCart, deliveryPincode, setDeliveryPincode, appliedCoupon, setAppliedCoupon, removeCoupon } = useCart();
   const { user } = useAuth();
 
   // Customer Form State
@@ -53,6 +54,23 @@ export default function Checkout({ onNavigate }) {
   const [upiModalOpen, setUpiModalOpen] = useState(false);
   const [createdOrder, setCreatedOrder] = useState(null);
   const [paymentData, setPaymentData] = useState(null);
+
+  // Coupon Entry in Payment Section State
+  const [couponInput, setCouponInput] = useState(appliedCoupon?.code || '');
+  const [couponApplying, setCouponApplying] = useState(false);
+  const [couponError, setCouponError] = useState('');
+  const [couponSuccess, setCouponSuccess] = useState(appliedCoupon?.code ? `Coupon ${appliedCoupon.code} applied!` : '');
+
+  // Keep couponInput in sync if appliedCoupon changes or loads from localStorage
+  useEffect(() => {
+    if (appliedCoupon?.code) {
+      setCouponInput(appliedCoupon.code);
+      setCouponSuccess(`Coupon ${appliedCoupon.code} applied!`);
+    } else {
+      setCouponInput('');
+      setCouponSuccess('');
+    }
+  }, [appliedCoupon]);
 
   // Load saved addresses for authenticated users
   useEffect(() => {
@@ -112,7 +130,13 @@ export default function Checkout({ onNavigate }) {
   useEffect(() => {
     if (cartItems.length > 0) {
       setLoadingSummary(true);
-      api.validateCart(cartItems, formData.pincode, appliedCoupon?.code || '')
+      const mappedItems = cartItems.map(i => ({
+        product_id: i.product_id || i.id,
+        quantity: Math.max(1, parseInt(i.quantity, 10) || 1),
+        selling_price: parseFloat(i.selling_price) || parseFloat(i.price) || 0,
+        mrp: parseFloat(i.mrp) || 0
+      }));
+      api.validateCart(mappedItems, formData.pincode, appliedCoupon?.code || '')
         .then(res => {
           if (res.success && res.data) {
             setSummary(res.data);
@@ -121,6 +145,53 @@ export default function Checkout({ onNavigate }) {
         .finally(() => setLoadingSummary(false));
     }
   }, [cartItems, formData.pincode, appliedCoupon]);
+
+  const handleApplyCoupon = async (e) => {
+    if (e) e.preventDefault();
+    if (!couponInput.trim()) return;
+    setCouponError('');
+    setCouponSuccess('');
+    setCouponApplying(true);
+
+    try {
+      const calcSubtotal = cartItems.reduce((acc, i) => {
+        const price = parseFloat(i.selling_price) || parseFloat(i.price) || 0;
+        const qty = Math.max(1, parseInt(i.quantity, 10) || 1);
+        return acc + (price * qty);
+      }, 0);
+      const currentSubtotal = (summary && summary.subtotal > 0) ? summary.subtotal : calcSubtotal;
+      const mappedItems = cartItems.map(i => ({
+        product_id: i.product_id || i.id,
+        quantity: Math.max(1, parseInt(i.quantity, 10) || 1),
+        selling_price: parseFloat(i.selling_price) || parseFloat(i.price) || 0
+      }));
+
+      const res = await api.validateCoupon(couponInput.trim(), currentSubtotal, mappedItems, formData.pincode);
+      if (res.success && res.data) {
+        setAppliedCoupon(res.data);
+        const savedAmt = (res.data.discount_amount || res.data.discount || 0).toFixed(2);
+        setCouponSuccess(`Coupon ${res.data.code} applied! Saved ₹${savedAmt}.`);
+        setCouponError('');
+      } else {
+        setCouponError(res.message || 'Invalid coupon.');
+      }
+    } catch (err) {
+      setCouponError(err.message || 'Coupon could not be applied.');
+    } finally {
+      setCouponApplying(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    if (removeCoupon) {
+      removeCoupon();
+    } else {
+      setAppliedCoupon(null);
+    }
+    setCouponInput('');
+    setCouponSuccess('');
+    setCouponError('');
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -173,7 +244,7 @@ export default function Checkout({ onNavigate }) {
       const activeCouponCode = appliedCoupon?.code ? String(appliedCoupon.code).trim().toUpperCase() : null;
       const orderPayload = {
         ...formData,
-        items: cartItems.map(i => ({ product_id: i.product_id, quantity: i.quantity })),
+        items: cartItems.map(i => ({ product_id: i.product_id || i.id, quantity: Math.max(1, parseInt(i.quantity, 10) || 1) })),
         coupon_code: activeCouponCode,
         payment_method: paymentMethod
       };
@@ -183,8 +254,8 @@ export default function Checkout({ onNavigate }) {
       if (orderRes.success && orderRes.data) {
         const orderInfo = orderRes.data;
 
-        // If Cash on Delivery, order is confirmed immediately!
-        if (paymentMethod === 'COD') {
+        // If Cash on Delivery or ₹0 order, order is confirmed immediately!
+        if (paymentMethod === 'COD' || Number(orderInfo.totalAmount) <= 0) {
           clearCart();
           onNavigate('order_success', { orderId: orderInfo.orderId });
           return;
@@ -474,9 +545,99 @@ export default function Checkout({ onNavigate }) {
 
               {/* Step 3: Payment Method Selection */}
               <div style={{ backgroundColor: '#FFFFFF', padding: '28px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-medium)', boxShadow: 'var(--shadow-sm)' }}>
-                <h3 style={{ fontSize: '1.25rem', color: 'var(--cacao-950)', marginBottom: '20px' }}>
+                <h3 style={{ fontSize: '1.25rem', color: 'var(--cacao-950)', marginBottom: '16px' }}>
                   3. Select Payment Method
                 </h3>
+
+                {/* Direct Coupon Entry Inside Payment Section */}
+                <div style={{
+                  padding: '16px 20px',
+                  backgroundColor: 'var(--cream-50)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1.5px solid var(--border-medium)',
+                  marginBottom: '22px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Tag size={18} style={{ color: 'var(--peanut-gold-700)' }} />
+                      <span style={{ fontWeight: '700', fontSize: '0.94rem', color: 'var(--cacao-950)' }}>
+                        Apply Coupon Discount
+                      </span>
+                    </div>
+                    {appliedCoupon && (
+                      <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#047857', backgroundColor: '#D1FAE5', padding: '2px 8px', borderRadius: '4px' }}>
+                        APPLIED
+                      </span>
+                    )}
+                  </div>
+
+                  {appliedCoupon ? (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '12px 16px',
+                      backgroundColor: '#ECFDF5',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid #A7F3D0',
+                      color: '#065F46',
+                      fontSize: '0.9rem',
+                      fontWeight: '600'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>🏷️ <strong>{appliedCoupon.code}</strong> applied! Saved ₹{(summary?.discountAmount || appliedCoupon.discount_amount || appliedCoupon.discount || 0).toFixed(2)}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRemoveCoupon}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--danger-color)',
+                          fontSize: '0.84rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          textDecoration: 'underline'
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input
+                        type="text"
+                        value={couponInput}
+                        onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                        placeholder="Enter coupon code (e.g. ILOVEMADHURAI)"
+                        className="form-input"
+                        style={{ flex: 1, textTransform: 'uppercase', fontSize: '0.9rem', padding: '10px 14px' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleApplyCoupon}
+                        disabled={couponApplying || !couponInput.trim()}
+                        className="btn btn-primary"
+                        style={{ padding: '10px 20px', fontSize: '0.9rem', whiteSpace: 'nowrap' }}
+                      >
+                        {couponApplying ? 'Applying...' : 'Apply'}
+                      </button>
+                    </div>
+                  )}
+
+                  {couponError && (
+                    <div style={{ fontSize: '0.82rem', color: 'var(--danger-color)', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <AlertCircle size={15} />
+                      <span>{couponError}</span>
+                    </div>
+                  )}
+                  {couponSuccess && !couponError && (
+                    <div style={{ fontSize: '0.82rem', color: 'var(--success-color)', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <CheckCircle size={15} />
+                      <span>{couponSuccess}</span>
+                    </div>
+                  )}
+                </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   {/* Dynamic UPI QR */}
@@ -609,7 +770,7 @@ export default function Checkout({ onNavigate }) {
                 <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.92rem', marginBottom: '24px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
                     <span>Subtotal</span>
-                    <span>₹{summary?.subtotal || cartItems.reduce((acc, i) => acc + i.selling_price * i.quantity, 0)}</span>
+                    <span>₹{summary?.subtotal || cartItems.reduce((acc, i) => acc + (parseFloat(i.selling_price) || parseFloat(i.price) || 0) * (parseInt(i.quantity, 10) || 1), 0)}</span>
                   </div>
 
                   {(summary?.discountAmount > 0 || (appliedCoupon && (appliedCoupon.discount_amount > 0 || appliedCoupon.discount > 0))) && (
@@ -638,7 +799,7 @@ export default function Checkout({ onNavigate }) {
                     <span>
                       ₹{summary?.finalTotal !== undefined 
                         ? Number(summary.finalTotal).toFixed(2)
-                        : Math.max(0, (summary?.subtotal || cartItems.reduce((acc, i) => acc + i.selling_price * i.quantity, 0)) - (appliedCoupon?.discount_amount || appliedCoupon?.discount || 0) + (summary?.deliveryCharge || 40)).toFixed(2)}
+                        : Math.max(0, (summary?.subtotal || cartItems.reduce((acc, i) => acc + (parseFloat(i.selling_price) || parseFloat(i.price) || 0) * (parseInt(i.quantity, 10) || 1), 0)) - (appliedCoupon?.discount_amount || appliedCoupon?.discount || 0) + (summary?.deliveryCharge || 40)).toFixed(2)}
                     </span>
                   </div>
                 </div>

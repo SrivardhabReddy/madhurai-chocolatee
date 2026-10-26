@@ -30,12 +30,38 @@ router.post('/validate', optionalAuth, async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'This coupon has expired.' });
     }
 
+    let orderAmt = parseFloat(subtotal) || 0;
+
+    // Robust subtotal calculation: if items array is provided, calculate actual subtotal from database or item prices
+    if (Array.isArray(items) && items.length > 0) {
+      let itemsSubtotal = 0;
+      for (const it of items) {
+        const pId = it.product_id || it.id;
+        const qty = Math.max(1, parseInt(it.quantity, 10) || 1);
+        if (pId) {
+          const prod = await get('SELECT selling_price FROM products WHERE id = ?', [pId]);
+          if (prod && prod.selling_price !== undefined && prod.selling_price !== null) {
+            itemsSubtotal += parseFloat(prod.selling_price) * qty;
+          } else {
+            const price = parseFloat(it.selling_price) || parseFloat(it.price) || 0;
+            itemsSubtotal += price * qty;
+          }
+        } else {
+          const price = parseFloat(it.selling_price) || parseFloat(it.price) || 0;
+          itemsSubtotal += price * qty;
+        }
+      }
+      if (itemsSubtotal > 0 && (orderAmt <= 0 || itemsSubtotal > orderAmt)) {
+        orderAmt = itemsSubtotal;
+      }
+    }
+
     // Check minimum order amount
-    const orderAmt = parseFloat(subtotal) || 0;
-    if (orderAmt < coupon.min_order_amount) {
+    const minOrderAmt = parseFloat(coupon.min_order_amount) || 0;
+    if (orderAmt < minOrderAmt) {
       return res.status(400).json({
         success: false,
-        message: `This coupon requires a minimum cart subtotal of ₹${coupon.min_order_amount}.`
+        message: `This coupon requires a minimum cart subtotal of ₹${minOrderAmt}.`
       });
     }
 
@@ -78,6 +104,7 @@ router.post('/validate', optionalAuth, async (req, res, next) => {
         discount_type: coupon.discount_type,
         discount_value: coupon.discount_value,
         discount_amount: discount,
+        discount: discount,
         description: coupon.description
       }
     });

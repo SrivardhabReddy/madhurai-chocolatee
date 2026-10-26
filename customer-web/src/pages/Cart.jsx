@@ -39,7 +39,14 @@ export default function Cart({ onNavigate }) {
     }
 
     setLoading(true);
-    api.validateCart(cartItems, deliveryPincode, appliedCoupon?.code || '')
+    const mappedItems = cartItems.map(i => ({
+      product_id: i.product_id || i.id,
+      quantity: Math.max(1, parseInt(i.quantity, 10) || 1),
+      selling_price: parseFloat(i.selling_price) || parseFloat(i.price) || 0,
+      mrp: parseFloat(i.mrp) || 0
+    }));
+
+    api.validateCart(mappedItems, deliveryPincode, appliedCoupon?.code || '')
       .then(res => {
         if (res.success && res.data) {
           setServerSummary(res.data);
@@ -58,11 +65,23 @@ export default function Cart({ onNavigate }) {
     setCouponSuccess('');
 
     try {
-      const currentSubtotal = serverSummary?.subtotal || cartItems.reduce((acc, i) => acc + i.selling_price * i.quantity, 0);
-      const res = await api.validateCoupon(couponCode.trim(), currentSubtotal, cartItems, deliveryPincode);
+      const calcSubtotal = cartItems.reduce((acc, i) => {
+        const price = parseFloat(i.selling_price) || parseFloat(i.price) || 0;
+        const qty = Math.max(1, parseInt(i.quantity, 10) || 1);
+        return acc + (price * qty);
+      }, 0);
+      const currentSubtotal = (serverSummary && serverSummary.subtotal > 0) ? serverSummary.subtotal : calcSubtotal;
+      const mappedItems = cartItems.map(i => ({
+        product_id: i.product_id || i.id,
+        quantity: Math.max(1, parseInt(i.quantity, 10) || 1),
+        selling_price: parseFloat(i.selling_price) || parseFloat(i.price) || 0
+      }));
+
+      const res = await api.validateCoupon(couponCode.trim(), currentSubtotal, mappedItems, deliveryPincode);
       if (res.success && res.data) {
         setAppliedCoupon(res.data);
-        setCouponSuccess(`Coupon ${res.data.code} applied! Saved ₹${res.data.discount_amount.toFixed(2)}.`);
+        const savedAmt = (res.data.discount_amount || res.data.discount || 0).toFixed(2);
+        setCouponSuccess(`Coupon ${res.data.code} applied! Saved ₹${savedAmt}.`);
       } else {
         setCouponError(res.message || 'Invalid coupon.');
       }
@@ -102,13 +121,18 @@ export default function Cart({ onNavigate }) {
     );
   }
 
-  const subtotal = serverSummary?.subtotal || cartItems.reduce((acc, i) => acc + i.selling_price * i.quantity, 0);
-  const totalMrp = serverSummary?.totalMrp || cartItems.reduce((acc, i) => acc + i.mrp * i.quantity, 0);
-  const discountAmount = serverSummary?.discountAmount || 0;
+  const fallbackSubtotal = cartItems.reduce((acc, i) => {
+    const price = parseFloat(i.selling_price) || parseFloat(i.price) || 0;
+    const qty = Math.max(1, parseInt(i.quantity, 10) || 1);
+    return acc + (price * qty);
+  }, 0);
+  const subtotal = (serverSummary && serverSummary.subtotal > 0) ? serverSummary.subtotal : fallbackSubtotal;
+  const totalMrp = serverSummary?.totalMrp || cartItems.reduce((acc, i) => acc + (parseFloat(i.mrp) || fallbackSubtotal) * (parseInt(i.quantity, 10) || 1), 0);
+  const discountAmount = serverSummary?.discountAmount || (appliedCoupon ? (appliedCoupon.discount_amount || appliedCoupon.discount || 0) : 0);
   const deliveryCharge = serverSummary?.deliveryCharge !== undefined ? serverSummary.deliveryCharge : 40;
-  const finalTotal = serverSummary?.finalTotal || (subtotal - discountAmount + deliveryCharge);
+  const finalTotal = serverSummary?.finalTotal !== undefined ? serverSummary.finalTotal : Math.max(0, subtotal - discountAmount + deliveryCharge);
   const isFreeDelivery = serverSummary?.delivery?.freeDelivery || false;
-  const totalQuantity = cartItems.reduce((acc, i) => acc + i.quantity, 0);
+  const totalQuantity = cartItems.reduce((acc, i) => acc + (parseInt(i.quantity, 10) || 1), 0);
 
   return (
     <div style={{ padding: '40px 0 80px', backgroundColor: 'var(--cream-50)' }}>

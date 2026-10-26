@@ -15,12 +15,13 @@ router.post('/validate', optionalAuth, async (req, res, next) => {
     const validatedItems = [];
 
     for (const item of items) {
+      const pId = item.product_id || item.id;
       const prod = await get(
         `SELECT p.*, c.name as category_name 
          FROM products p 
          LEFT JOIN categories c ON p.category_id = c.id
          WHERE p.id = ? AND p.status = 'ACTIVE' AND p.deleted_at IS NULL`,
-        [item.product_id]
+        [pId]
       );
 
       if (!prod) continue;
@@ -63,7 +64,8 @@ router.post('/validate', optionalAuth, async (req, res, next) => {
       const code = String(coupon_code).trim().toUpperCase();
       const coupon = await get('SELECT * FROM coupons WHERE code = ? AND is_active = 1', [code]);
       if (coupon) {
-        if (subtotal >= coupon.min_order_amount) {
+        const minOrder = parseFloat(coupon.min_order_amount) || 0;
+        if (subtotal >= minOrder) {
           if (coupon.discount_type === 'PERCENTAGE') {
             discountAmount = (subtotal * coupon.discount_value) / 100;
             if (coupon.max_discount_amount && discountAmount > coupon.max_discount_amount) {
@@ -76,7 +78,8 @@ router.post('/validate', optionalAuth, async (req, res, next) => {
           appliedCoupon = {
             code: coupon.code,
             description: coupon.description,
-            discount: discountAmount
+            discount: discountAmount,
+            discount_amount: discountAmount
           };
         }
       }

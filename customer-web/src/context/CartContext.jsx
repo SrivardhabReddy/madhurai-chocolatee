@@ -79,18 +79,22 @@ export function CartProvider({ children }) {
         return next;
       } else {
         const primaryImg = product.primary_image?.image_url || product.image_url || product.images?.[0]?.image_url || '/chocolate-crunch-pb.jpg';
+        const sPrice = parseFloat(product.selling_price) || parseFloat(product.price) || 0;
+        const mrpVal = parseFloat(product.mrp) || sPrice;
         return [
           ...prev,
           {
             product_id: product.id,
+            id: product.id,
             name: product.name,
             slug: product.slug,
             image_url: primaryImg,
             weight: product.weight,
             selling_unit: product.selling_unit,
             pieces_per_pack: product.pieces_per_pack,
-            mrp: product.mrp,
-            selling_price: product.selling_price,
+            mrp: mrpVal,
+            selling_price: sPrice,
+            price: sPrice,
             discount: product.discount,
             quantity: qty
           }
@@ -100,14 +104,14 @@ export function CartProvider({ children }) {
   };
 
   const removeItem = (productId) => {
-    setCartItems(prev => prev.filter(i => i.product_id !== productId));
+    setCartItems(prev => prev.filter(i => (i.product_id !== productId && i.id !== productId)));
   };
 
   const updateQuantity = (productId, delta) => {
     setCartItems(prev => {
       return prev.map(item => {
-        if (item.product_id === productId) {
-          const newQty = item.quantity + delta;
+        if (item.product_id === productId || item.id === productId) {
+          const newQty = (parseInt(item.quantity, 10) || 1) + delta;
           return newQty > 0 ? { ...item, quantity: newQty } : null;
         }
         return item;
@@ -145,8 +149,8 @@ export function CartProvider({ children }) {
     return wishlist.some(p => p.id === productId);
   };
 
-  const totalItems = cartItems.reduce((acc, item) => acc + item.quantity, 0);
-  const subtotal = cartItems.reduce((acc, item) => acc + item.selling_price * item.quantity, 0);
+  const totalItems = cartItems.reduce((acc, item) => acc + (parseInt(item.quantity, 10) || 1), 0);
+  const subtotal = cartItems.reduce((acc, item) => acc + (parseFloat(item.selling_price) || parseFloat(item.price) || 0) * (parseInt(item.quantity, 10) || 1), 0);
 
   return (
     <CartContext.Provider

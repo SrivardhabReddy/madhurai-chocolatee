@@ -75,11 +75,12 @@ router.post('/', orderLimiter, optionalAuth, async (req, res, next) => {
     const validatedItems = [];
 
     for (const item of items) {
-      const prod = await get("SELECT * FROM products WHERE id = ? AND status = 'ACTIVE'", [item.product_id]);
+      const pId = item.product_id || item.id;
+      const prod = await get("SELECT * FROM products WHERE id = ? AND status = 'ACTIVE'", [pId]);
       if (!prod) {
         return res.status(400).json({
           success: false,
-          message: `Product with ID ${item.product_id} is no longer available.`
+          message: `Product with ID ${pId} is no longer available.`
         });
       }
 
@@ -131,10 +132,11 @@ router.post('/', orderLimiter, optionalAuth, async (req, res, next) => {
       }
 
       // Check minimum order amount
-      if (calculatedSubtotal < coupon.min_order_amount) {
+      const minOrderAmt = parseFloat(coupon.min_order_amount) || 0;
+      if (calculatedSubtotal < minOrderAmt) {
         return res.status(400).json({
           success: false,
-          message: `Coupon "${cleanCode}" requires a minimum cart subtotal of ₹${coupon.min_order_amount}. Current subtotal is ₹${calculatedSubtotal}.`
+          message: `Coupon "${cleanCode}" requires a minimum cart subtotal of ₹${minOrderAmt}. Current subtotal is ₹${calculatedSubtotal}.`
         });
       }
 
@@ -194,9 +196,9 @@ router.post('/', orderLimiter, optionalAuth, async (req, res, next) => {
           deliveryCharge,
           finalDelivery.freeDelivery ? 1 : 0,
           totalAmount,
-          payment_method === 'COD' ? 'PENDING' : 'PENDING',
+          totalAmount <= 0 ? 'PAID' : (payment_method === 'COD' ? 'PENDING' : 'PENDING'),
           payment_method,
-          'ORDER_PLACED',
+          totalAmount <= 0 ? 'CONFIRMED' : 'ORDER_PLACED',
           customer_notes || null,
           finalDelivery.estimatedMinDays,
           finalDelivery.estimatedMaxDays
