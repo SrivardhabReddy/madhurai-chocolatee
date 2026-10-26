@@ -766,6 +766,96 @@ export default function Checkout({ onNavigate }) {
                   ))}
                 </div>
 
+                {/* Direct Coupon Entry Inside Review Order Box */}
+                <div style={{
+                  padding: '12px 14px',
+                  backgroundColor: 'var(--cream-50)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-medium)',
+                  marginBottom: '16px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Tag size={16} style={{ color: 'var(--peanut-gold-700)' }} />
+                      <span style={{ fontWeight: '700', fontSize: '0.88rem', color: 'var(--cacao-950)' }}>
+                        Have a Coupon Code?
+                      </span>
+                    </div>
+                    {appliedCoupon && (
+                      <span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#047857', backgroundColor: '#D1FAE5', padding: '2px 6px', borderRadius: '4px' }}>
+                        APPLIED
+                      </span>
+                    )}
+                  </div>
+
+                  {appliedCoupon ? (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 12px',
+                      backgroundColor: '#ECFDF5',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid #A7F3D0',
+                      color: '#065F46',
+                      fontSize: '0.85rem',
+                      fontWeight: '600'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>🏷️ <strong>{appliedCoupon.code}</strong> (-₹{(summary?.discountAmount || appliedCoupon.discount_amount || appliedCoupon.discount || 0).toFixed(0)})</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRemoveCoupon}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--danger-color)',
+                          fontSize: '0.8rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          textDecoration: 'underline'
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <input
+                        type="text"
+                        value={couponInput}
+                        onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                        placeholder="Enter coupon code"
+                        className="form-input"
+                        style={{ flex: 1, textTransform: 'uppercase', fontSize: '0.85rem', padding: '8px 10px' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleApplyCoupon}
+                        disabled={couponApplying || !couponInput.trim()}
+                        className="btn btn-primary"
+                        style={{ padding: '8px 14px', fontSize: '0.82rem', whiteSpace: 'nowrap' }}
+                      >
+                        {couponApplying ? '...' : 'Apply'}
+                      </button>
+                    </div>
+                  )}
+
+                  {couponError && (
+                    <div style={{ fontSize: '0.78rem', color: 'var(--danger-color)', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <AlertCircle size={13} />
+                      <span>{couponError}</span>
+                    </div>
+                  )}
+                  {couponSuccess && !couponError && (
+                    <div style={{ fontSize: '0.78rem', color: 'var(--success-color)', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <CheckCircle size={13} />
+                      <span>{couponSuccess}</span>
+                    </div>
+                  )}
+                </div>
+
                 {/* Cost Breakdown */}
                 <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.92rem', marginBottom: '24px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
