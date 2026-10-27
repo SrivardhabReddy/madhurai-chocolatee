@@ -23,17 +23,36 @@ export default function Catalog({ initialCategory, initialQuery, onNavigate }) {
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
+    let retryTimeout = null;
     setLoading(true);
-    api.getProducts({
-      q: search,
-      category: selectedCategory,
-      min_price: minPrice,
-      max_price: maxPrice,
-      in_stock: inStockOnly ? 'true' : undefined,
-      sort: sortBy
-    }).then(res => {
-      if (res.success) setProducts(res.data);
-    }).finally(() => setLoading(false));
+
+    const loadProducts = (attempt = 1) => {
+      api.getProducts({
+        q: search,
+        category: selectedCategory,
+        min_price: minPrice,
+        max_price: maxPrice,
+        in_stock: inStockOnly ? 'true' : undefined,
+        sort: sortBy
+      }).then(res => {
+        if (!isMounted) return;
+        if (res?.success) setProducts(res.data);
+      }).catch(err => {
+        if (attempt <= 4 && isMounted) {
+          retryTimeout = setTimeout(() => loadProducts(attempt + 1), attempt * 2500);
+        }
+      }).finally(() => {
+        if (isMounted) setLoading(false);
+      });
+    };
+
+    loadProducts();
+
+    return () => {
+      isMounted = false;
+      if (retryTimeout) clearTimeout(retryTimeout);
+    };
   }, [search, selectedCategory, minPrice, maxPrice, inStockOnly, sortBy]);
 
   return (

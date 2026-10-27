@@ -87,10 +87,10 @@ export async function runSeeds() {
         [u.id, u.email, u.pass, u.name, u.phone, u.role]
       );
     } else {
-      // Keep password updated if seeded
+      // Keep role and account active, but preserve user's password
       await query(
-        'UPDATE users SET password_hash = ?, role = ?, is_active = 1 WHERE email = ?',
-        [u.pass, u.role, u.email]
+        'UPDATE users SET role = ?, is_active = 1 WHERE email = ?',
+        [u.role, u.email]
       );
     }
   }
@@ -245,6 +245,39 @@ export async function runSeeds() {
       is_featured: 1,
       is_bestseller: 0,
       is_new: 0
+    },
+    {
+      id: 'prod_1792819116609_lhst',
+      name: 'MADHURAI mini bites',
+      slug: 'madhurai-mini-bites',
+      desc: 'The real love of crunchy peanut butter is filled inside the chocolate it makes lava inside in your mouth.',
+      category_id: 'cat_crunch_specials',
+      mrp: 220.00,
+      selling_price: 190.00,
+      discount: 13.64,
+      stock: 79,
+      weight: '320g',
+      selling_unit: 'BOX',
+      pieces_per_pack: 40,
+      ingredients: 'Sugar, Cocoa Powder, Milk Powders, Vegetable Fat, Peanuts, Peanut Butter, Sugar Syrup, Vanilla Essence, Sea Salt. 0% Palm Oil & Zero Trans Fat.',
+      nutrition: JSON.stringify({
+        serving_size: 'per 100g',
+        calories: '526 kcal',
+        protein: '9.2g',
+        total_fat: '29.5g',
+        saturated_fat: '19.6g',
+        trans_fat: '0.1g',
+        carbohydrates: '58g',
+        dietary_fiber: '1.2g',
+        sugars: '48.5g',
+        sodium: '110mg'
+      }),
+      delivery_available: 1,
+      cod_available: 1,
+      status: 'ACTIVE',
+      is_featured: 1,
+      is_bestseller: 1,
+      is_new: 1
     }
   ];
 
@@ -286,7 +319,8 @@ export async function runSeeds() {
     { id: 'img_pb_2', prod_id: 'prod_main_pb_crunch', url: '/uploads/madhurai-pack-box.jpg', alt: 'Madhurai 500g 40 pieces luxury gold box', order: 2, primary: 0 },
     { id: 'img_festive_1', prod_id: 'prod_royal_festive_box', url: '/uploads/madhurai-pack-box.jpg', alt: 'Royal Heritage Festive Box', order: 1, primary: 1 },
     { id: 'img_truffle_1', prod_id: 'prod_dark_truffle_bites', url: '/uploads/chocolate-crunch-pb.jpg', alt: 'Dark Truffle Silk Bites', order: 1, primary: 1 },
-    { id: 'img_slab_1', prod_id: 'prod_pb_slab', url: '/uploads/madhurai-hero-banner.jpg', alt: 'Peanut Butter Chocolate Slab', order: 1, primary: 1 }
+    { id: 'img_slab_1', prod_id: 'prod_pb_slab', url: '/uploads/madhurai-hero-banner.jpg', alt: 'Peanut Butter Chocolate Slab', order: 1, primary: 1 },
+    { id: 'img_mini_bites_1', prod_id: 'prod_1792819116609_lhst', url: '/uploads/img_1792819113635_kijy.png', alt: 'MADHURAI mini bites', order: 1, primary: 1 }
   ];
   for (const img of images) {
     const existing = await get('SELECT id FROM product_images WHERE id = ?', [img.id]);
@@ -432,7 +466,8 @@ export async function runSeeds() {
   const coupons = [
     { id: 'coup_welcome10', code: 'WELCOME10', desc: '10% OFF on purchase above ₹300', type: 'PERCENTAGE', val: 10.0, min: 300.0, max: 100.0, limit: 1 },
     { id: 'coup_crunch50', code: 'CRUNCH50', desc: 'Flat ₹50 OFF on Peanut Butter Crunch boxes', type: 'FIXED', val: 50.0, min: 400.0, max: null, limit: 2 },
-    { id: 'coup_freeship', code: 'FREESHIP', desc: 'Free express shipping on orders', type: 'FIXED', val: 40.0, min: 0.0, max: 60.0, limit: 1 }
+    { id: 'coup_freeship', code: 'FREESHIP', desc: 'Free express shipping on orders', type: 'FIXED', val: 40.0, min: 0.0, max: 60.0, limit: 1 },
+    { id: 'coup_ilovemadhurai', code: 'ILOVEMADHURAI', desc: 'Special discount', type: 'FIXED', val: 190.0, min: 100.0, max: null, limit: 1 }
   ];
   for (const c of coupons) {
     const existing = await get('SELECT id FROM coupons WHERE code = ?', [c.code]);
@@ -467,11 +502,6 @@ export async function runSeeds() {
       await query(
         'INSERT INTO business_settings (id, setting_key, setting_value, group_name, description) VALUES (?, ?, ?, ?, ?)',
         [`set_${b.key}`, b.key, b.val, b.grp, b.desc]
-      );
-    } else {
-      await query(
-        'UPDATE business_settings SET setting_value = ? WHERE setting_key = ?',
-        [b.val, b.key]
       );
     }
   }

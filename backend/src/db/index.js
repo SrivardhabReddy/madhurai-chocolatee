@@ -20,12 +20,15 @@ export async function initDatabase() {
   
   if (dbUrl && (dbUrl.startsWith('postgres://') || dbUrl.startsWith('postgresql://'))) {
     try {
+      const isRemote = !dbUrl.includes('localhost') && !dbUrl.includes('127.0.0.1');
       pgPool = new Pool({
         connectionString: dbUrl,
-        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+        ssl: (process.env.NODE_ENV === 'production' || isRemote || dbUrl.includes('neon.tech') || dbUrl.includes('sslmode=require')) 
+          ? { rejectUnauthorized: false } 
+          : false,
         max: 20,
         idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 5000,
+        connectionTimeoutMillis: 10000,
       });
       // Test connection
       const client = await pgPool.connect();

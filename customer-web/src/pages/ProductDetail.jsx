@@ -45,15 +45,17 @@ export default function ProductDetail({ slug, id, onNavigate }) {
   };
 
   useEffect(() => {
+    let isMounted = true;
+    let retryTimeout = null;
     setLoading(true);
     setError('');
 
-    const resolveProduct = async () => {
+    const resolveProduct = async (attempt = 1) => {
       try {
         const targetIdentifier = slug || id;
         if (targetIdentifier) {
           const res = await api.getProductBySlug(targetIdentifier).catch(() => null);
-          if (res?.success && res?.data) {
+          if (res?.success && res?.data && isMounted) {
             setProduct(res.data);
             const primary = res.data.primary_image?.image_url || res.data.images?.[0]?.image_url || '/chocolate-crunch-pb.jpg';
             setSelectedImage(primary);
@@ -62,9 +64,9 @@ export default function ProductDetail({ slug, id, onNavigate }) {
           }
         }
 
-        // Try getting catalog to find product by id or slug or fallback
+        // Try getting catalog to find product by id or slug
         const catRes = await api.getProducts().catch(() => null);
-        if (catRes?.success && Array.isArray(catRes.data) && catRes.data.length > 0) {
+        if (catRes?.success && Array.isArray(catRes.data) && catRes.data.length > 0 && isMounted) {
           const matched = catRes.data.find(p => 
             p.slug === targetIdentifier || 
             String(p.id) === String(targetIdentifier) || 
@@ -77,18 +79,37 @@ export default function ProductDetail({ slug, id, onNavigate }) {
           return;
         }
 
-        // Fallback product
-        setProduct(fallbackProduct);
-        setSelectedImage('/chocolate-crunch-pb.jpg');
+        // If backend failed and attempt <= 4, retry with backoff
+        if (attempt <= 4 && isMounted) {
+          retryTimeout = setTimeout(() => resolveProduct(attempt + 1), attempt * 2500);
+          return;
+        }
+
+        // Fallback product after retries exhausted
+        if (isMounted) {
+          setProduct(fallbackProduct);
+          setSelectedImage('/chocolate-crunch-pb.jpg');
+          setLoading(false);
+        }
       } catch (err) {
-        setProduct(fallbackProduct);
-        setSelectedImage('/chocolate-crunch-pb.jpg');
-      } finally {
-        setLoading(false);
+        if (attempt <= 4 && isMounted) {
+          retryTimeout = setTimeout(() => resolveProduct(attempt + 1), attempt * 2500);
+          return;
+        }
+        if (isMounted) {
+          setProduct(fallbackProduct);
+          setSelectedImage('/chocolate-crunch-pb.jpg');
+          setLoading(false);
+        }
       }
     };
 
     resolveProduct();
+
+    return () => {
+      isMounted = false;
+      if (retryTimeout) clearTimeout(retryTimeout);
+    };
   }, [slug, id]);
 
   if (loading) {

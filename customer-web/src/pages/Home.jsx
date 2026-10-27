@@ -26,15 +26,39 @@ export default function Home({ onNavigate }) {
   const [openFaq, setOpenFaq] = useState(null);
 
   useEffect(() => {
-    Promise.all([
-      api.getProducts(),
-      api.getCategories()
-    ]).then(([prodRes, catRes]) => {
-      if (prodRes.success) setProducts(prodRes.data);
-      if (catRes.success) setCategories(catRes.data);
-    }).catch(err => {
-      console.error('Failed to load homepage catalog:', err);
-    }).finally(() => setLoading(false));
+    let isMounted = true;
+    let retryTimeout = null;
+
+    const loadCatalog = (attempt = 1) => {
+      Promise.all([
+        api.getProducts(),
+        api.getCategories()
+      ]).then(([prodRes, catRes]) => {
+        if (!isMounted) return;
+        if (prodRes?.success && Array.isArray(prodRes.data) && prodRes.data.length > 0) {
+          setProducts(prodRes.data);
+        }
+        if (catRes?.success && Array.isArray(catRes.data)) {
+          setCategories(catRes.data);
+        }
+      }).catch(err => {
+        console.warn(`[Catalog] Fetch attempt ${attempt} waiting for backend...`, err.message);
+        // If server is waking up (cold start), auto-retry up to 4 times (3s, 5s, 8s, 10s)
+        if (attempt <= 4 && isMounted) {
+          const delay = attempt * 2500;
+          retryTimeout = setTimeout(() => loadCatalog(attempt + 1), delay);
+        }
+      }).finally(() => {
+        if (isMounted) setLoading(false);
+      });
+    };
+
+    loadCatalog();
+
+    return () => {
+      isMounted = false;
+      if (retryTimeout) clearTimeout(retryTimeout);
+    };
   }, []);
 
   const fallbackProduct = {
