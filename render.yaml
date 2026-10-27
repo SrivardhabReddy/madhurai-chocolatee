@@ -1,3 +1,9 @@
+databases:
+  - name: madhurai-chocolate-db
+    databaseName: madhurai_chocolate
+    user: madhurai_user
+    plan: free
+
 services:
   - type: web
     name: madhurai-chocolate
@@ -8,6 +14,10 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: madhurai-chocolate-db
+          property: connectionString
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRES_IN
