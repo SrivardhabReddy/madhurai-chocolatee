@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '../..');
 
-const tunnelUrl = 'https://madhurai-chocolate.onrender.com';
+const tunnelUrl = process.env.CUSTOMER_APP_URL || 'https://madhuraichocolates.in';
 const wifiUrl = 'http://192.168.0.101:3000';
 
 async function run() {
@@ -53,7 +53,9 @@ async function run() {
     if (fs.existsSync(svgTarget)) {
       let content = fs.readFileSync(svgTarget, 'utf8');
       content = content.replace(/<image href="[^"]*"/, `<image href="${tunnelDataUrl}"`);
+      content = content.replace(/(<text[^>]*y="539"[^>]*>\s*)(?:https?:\/\/[^\s<]+)(\s*<\/text>)/g, `$1${tunnelUrl}$2`);
       content = content.replace(/http:\/\/192\.168\.0\.101:3000/g, tunnelUrl);
+      content = content.replace(/https:\/\/madhurai-chocolate\.onrender\.com/g, tunnelUrl);
       fs.writeFileSync(svgTarget, content, 'utf8');
       console.log('Updated SVG:', svgTarget);
     }

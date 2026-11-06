@@ -34,7 +34,7 @@ test('Cart, Checkout & Order Lifecycle Suite', async (t) => {
         items: [
           {
             product_id: targetProduct.id,
-            quantity: 2,
+            quantity: 3,
             unit_price: 10 // Attacker attempt to send ₹10, backend must use true price
           }
         ],
@@ -52,14 +52,15 @@ test('Cart, Checkout & Order Lifecycle Suite', async (t) => {
     createdOrderId = data.data.orderId;
     createdOrderNumber = data.data.orderNumber;
 
-    // Verify calculated totals:
-    // 2 boxes @ 400 = 800
-    // CRUNCH50 discount = 50
-    // Delivery for 800 order value = 0 (Free Delivery above 500)
-    // Final Total = 750
-    assert.strictEqual(data.data.subtotal, 800, 'Backend correctly calculated true product subtotal 2 * 400 = 800');
-    assert.strictEqual(data.data.discountAmount, 50, 'Applied 50 coupon discount');
-    assert.strictEqual(data.data.totalAmount, 750, 'Final verified total is 750');
+    const unitPrice = parseFloat(targetProduct.selling_price);
+    const expectedSubtotal = unitPrice * 3;
+    const expectedDiscount = 50; // CRUNCH50 applies since expectedSubtotal > 400
+    const expectedDelivery = expectedSubtotal >= 500 ? 0 : 40;
+    const expectedTotal = expectedSubtotal - expectedDiscount + expectedDelivery;
+
+    assert.strictEqual(data.data.subtotal, expectedSubtotal, `Backend correctly calculated true product subtotal 3 * ${unitPrice}`);
+    assert.strictEqual(data.data.discountAmount, expectedDiscount, 'Applied 50 coupon discount');
+    assert.strictEqual(data.data.totalAmount, expectedTotal, `Final verified total is ${expectedTotal}`);
   });
 
   await t.test('2. Order Item & Delivery Snapshots', async () => {

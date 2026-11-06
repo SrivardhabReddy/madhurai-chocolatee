@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { PaymentService } from './PaymentService.js';
 import { authenticate } from '../../middleware/auth.js';
 import { requireRoles } from '../../middleware/rbac.js';
-import { get, all } from '../../db/index.js';
+import { query, get, all } from '../../db/index.js';
 
 const router = Router();
 
@@ -81,6 +81,62 @@ router.post('/simulate-success', async (req, res, next) => {
     });
 
     return res.json({ success: true, message: 'Sandbox payment successfully simulated and verified.', ...result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Customer UPI direct payment confirmation (with optional 12-digit UTR reference)
+router.post('/confirm-upi', async (req, res, next) => {
+  try {
+    const { order_id, payment_id, utr_number = '', customer_notes = '' } = req.body;
+    if (!order_id) {
+      return res.status(400).json({ success: false, message: 'Order ID is required.' });
+    }
+
+    const order = await get('SELECT * FROM orders WHERE id = ? OR order_number = ?', [order_id, order_id]);
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found.' });
+    }
+
+    let payment = null;
+    if (payment_id) {
+      payment = await get('SELECT * FROM payments WHERE id = ?', [payment_id]);
+    }
+    if (!payment) {
+      payment = await get('SELECT * FROM payments WHERE order_id = ? ORDER BY created_at DESC LIMIT 1', [order.id]);
+    }
+
+    const refNumber = (utr_number && utr_number.trim()) || `UPI_CONFIRMED_${Date.now()}`;
+    const cleanPaymentId = payment ? payment.id : `pay_upi_${Date.now()}`;
+
+    // Update payment record to SUCCESS
+    if (payment) {
+      await query(
+        `UPDATE payments SET status = 'SUCCESS', gateway_payment_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+        [refNumber, payment.id]
+      );
+    } else {
+      await query(
+        `INSERT INTO payments (id, order_id, gateway, amount, currency, status, payment_method, gateway_payment_id)
+         VALUES (?, ?, 'UPI_MANUAL', ?, 'INR', 'SUCCESS', 'UPI_QR', ?)`,
+        [cleanPaymentId, order.id, order.total_amount, refNumber]
+      );
+    }
+
+    // Update order to PAID and PAYMENT_CONFIRMED
+    await query(
+      `UPDATE orders SET payment_status = 'PAID', order_status = 'PAYMENT_CONFIRMED', payment_reference = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      [refNumber, order.id]
+    );
+
+    const updatedOrder = await get('SELECT * FROM orders WHERE id = ?', [order.id]);
+
+    return res.json({
+      success: true,
+      message: 'Payment confirmed successfully! Your order is placed and ready for dispatch.',
+      data: updatedOrder
+    });
   } catch (err) {
     next(err);
   }

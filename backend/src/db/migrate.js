@@ -17,6 +17,26 @@ export async function runMigrations() {
   
   const sql = fs.readFileSync(migrationPath, 'utf8');
   await exec(sql);
+
+  // Safely ensure dispatch and payment reference columns exist on orders table
+  const columnsToAdd = [
+    { name: 'courier_name', type: 'TEXT' },
+    { name: 'tracking_number', type: 'TEXT' },
+    { name: 'tracking_url', type: 'TEXT' },
+    { name: 'dispatch_date', type: 'TEXT' },
+    { name: 'dispatch_notes', type: 'TEXT' },
+    { name: 'dispatched_by', type: 'TEXT' },
+    { name: 'payment_reference', type: 'TEXT' }
+  ];
+
+  for (const col of columnsToAdd) {
+    try {
+      await exec(`ALTER TABLE orders ADD COLUMN ${col.name} ${col.type}`);
+    } catch (e) {
+      // Column already exists or table updated
+    }
+  }
+
   console.log('✅ Database schema verified and up to date.');
 }
 

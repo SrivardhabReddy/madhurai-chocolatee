@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Eye, Filter, CheckCircle, RefreshCcw, DollarSign, X, AlertTriangle } from 'lucide-react';
+import { Search, Eye, Filter, CheckCircle, RefreshCcw, DollarSign, X, AlertTriangle, Truck, ExternalLink } from 'lucide-react';
 import { adminApi } from '../services/adminApi.js';
+import DispatchModal from '../components/DispatchModal.jsx';
 
 export default function Orders() {
   const [orders, setOrders] = useState([]);
@@ -18,6 +19,25 @@ export default function Orders() {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [refundReason, setRefundReason] = useState('');
   const [refundModal, setRefundModal] = useState(false);
+  const [dispatchModalOrder, setDispatchModalOrder] = useState(null);
+
+  const handleQuickMarkPaid = async (order) => {
+    const utr = window.prompt(`Confirm online payment for ${order.order_number} (Amount: ₹${order.total_amount}).\nEnter UPI Ref / UTR number (optional):`, '');
+    if (utr === null) return;
+
+    try {
+      const res = await adminApi.markOrderPaid(order.id, utr);
+      if (res.success) {
+        alert(`Order ${order.order_number} marked as PAID online!`);
+        if (selectedOrder && selectedOrder.id === order.id) {
+          setSelectedOrder(prev => ({ ...prev, payment_status: 'PAID', order_status: 'PAYMENT_CONFIRMED' }));
+        }
+        loadOrders();
+      }
+    } catch (err) {
+      alert(err.message || 'Payment update failed.');
+    }
+  };
 
   const loadOrders = () => {
     setLoading(true);
@@ -166,60 +186,126 @@ export default function Orders() {
               <th>Customer</th>
               <th>Phone</th>
               <th>Pincode</th>
-              <th>Subtotal</th>
-              <th>Delivery</th>
               <th>Total Amount</th>
               <th>Payment</th>
               <th>Status</th>
+              <th>Courier / Tracking</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="10" style={{ textAlign: 'center', padding: '30px' }}>Loading orders...</td></tr>
+              <tr><td colSpan="9" style={{ textAlign: 'center', padding: '30px' }}>Loading orders...</td></tr>
             ) : orders.length > 0 ? (
               orders.map(o => (
                 <tr key={o.id}>
                   <td><strong>{o.order_number}</strong></td>
                   <td>{o.customer_name}</td>
-                  <td>{o.customer_phone}</td>
+                  <td>
+                    <a href={`tel:${o.customer_phone}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                      {o.customer_phone}
+                    </a>
+                  </td>
                   <td>{o.pincode}</td>
-                  <td>₹{o.subtotal}</td>
-                  <td>{o.is_free_delivery ? <span className="status-pill pill-success" style={{ fontSize: '0.68rem' }}>FREE</span> : `₹${o.delivery_charge}`}</td>
                   <td>
                     {o.payment_status === 'PAID' ? (
-                      <strong style={{ color: '#059669', fontSize: '1rem' }}>₹{o.total_amount}</strong>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <strong style={{ color: '#059669', fontSize: '0.98rem' }}>₹{o.total_amount}</strong>
+                        <span style={{ fontSize: '0.68rem', color: '#059669', fontWeight: '600' }}>✓ In Revenue</span>
+                      </div>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ color: '#D97706', fontSize: '0.84rem', fontWeight: '700' }}>Payment Pending</span>
-                        <span style={{ fontSize: '0.74rem', color: 'var(--admin-text-muted)' }}>(₹{o.total_amount} due)</span>
+                        <strong style={{ color: '#D97706', fontSize: '0.92rem' }}>₹{o.total_amount}</strong>
+                        <span style={{ fontSize: '0.68rem', color: 'var(--admin-text-muted)' }}>Payment Pending</span>
                       </div>
                     )}
                   </td>
                   <td>
-                    <span className={`status-pill ${o.payment_status === 'PAID' ? 'pill-success' : 'pill-warning'}`}>
-                      {o.payment_status} ({o.payment_method})
-                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <span className={`status-pill ${o.payment_status === 'PAID' ? 'pill-success' : 'pill-warning'}`} style={{ fontSize: '0.72rem', width: 'fit-content' }}>
+                        {o.payment_status} ({o.payment_method})
+                      </span>
+                      {o.payment_reference && (
+                        <span style={{ fontSize: '0.68rem', color: 'var(--admin-text-muted)' }}>
+                          Ref: {o.payment_reference}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td>
-                    <span className={`status-pill ${o.order_status === 'DELIVERED' ? 'pill-success' : o.order_status === 'CANCELLED' ? 'pill-danger' : 'pill-info'}`}>
+                    <span className={`status-pill ${o.order_status === 'DELIVERED' ? 'pill-success' : o.order_status === 'CANCELLED' ? 'pill-danger' : ['SHIPPED', 'OUT_FOR_DELIVERY'].includes(o.order_status) ? 'pill-info' : 'pill-warning'}`} style={{ fontSize: '0.74rem' }}>
                       {o.order_status}
                     </span>
                   </td>
                   <td>
-                    <button
-                      onClick={() => handleInspectOrder(o)}
-                      className="btn-admin btn-admin-outline btn-admin-sm"
-                      style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-                    >
-                      <Eye size={14} />
-                      <span>Inspect</span>
-                    </button>
+                    {o.courier_name || o.tracking_number ? (
+                      <div style={{ fontSize: '0.78rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span style={{ fontWeight: '700', color: 'var(--admin-text-main)' }}>
+                          🚚 {o.courier_name || 'Courier'}
+                        </span>
+                        {o.tracking_number && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ color: 'var(--admin-text-secondary)', fontSize: '0.72rem' }}>
+                              #{o.tracking_number}
+                            </span>
+                            {o.tracking_url && (
+                              <a
+                                href={o.tracking_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ color: 'var(--admin-accent)', display: 'inline-flex', alignItems: 'center' }}
+                                title="Open tracking"
+                              >
+                                <ExternalLink size={10} />
+                              </a>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: '0.74rem', color: 'var(--admin-text-muted)', fontStyle: 'italic' }}>
+                        Unassigned
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <button
+                        onClick={() => setDispatchModalOrder(o)}
+                        className="btn-admin btn-admin-primary btn-admin-sm"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.74rem', padding: '4px 8px' }}
+                        title="Edit dispatch, courier and tracking"
+                      >
+                        <Truck size={12} />
+                        <span>Dispatch</span>
+                      </button>
+
+                      {o.payment_status !== 'PAID' && (
+                        <button
+                          onClick={() => handleQuickMarkPaid(o)}
+                          className="btn-admin btn-admin-outline btn-admin-sm"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.72rem', padding: '4px 7px', color: '#059669', borderColor: '#A7F3D0' }}
+                          title="Mark online payment completed"
+                        >
+                          <CheckCircle size={11} />
+                          <span>Paid</span>
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => handleInspectOrder(o)}
+                        className="btn-admin btn-admin-outline btn-admin-sm"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.74rem', padding: '4px 8px' }}
+                      >
+                        <Eye size={12} />
+                        <span>Inspect</span>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
             ) : (
-              <tr><td colSpan="10" style={{ textAlign: 'center', padding: '30px' }}>No orders found.</td></tr>
+              <tr><td colSpan="9" style={{ textAlign: 'center', padding: '30px' }}>No orders found.</td></tr>
             )}
           </tbody>
         </table>
@@ -264,8 +350,28 @@ export default function Orders() {
               </div>
             </div>
 
-            {/* Specialized Actions: COD Collection & Refunds */}
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
+            {/* Specialized Actions: Dispatch, COD Collection & Refunds */}
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setDispatchModalOrder(selectedOrder)}
+                className="btn-admin btn-admin-primary"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Truck size={16} />
+                <span>Edit Dispatch & Shipping Logistics</span>
+              </button>
+
+              {selectedOrder.payment_status !== 'PAID' && (
+                <button
+                  onClick={() => handleQuickMarkPaid(selectedOrder)}
+                  className="btn-admin btn-admin-outline"
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#059669', borderColor: '#A7F3D0' }}
+                >
+                  <CheckCircle size={16} />
+                  <span>Mark as Paid Online (Verified)</span>
+                </button>
+              )}
+
               {selectedOrder.payment_method === 'COD' && selectedOrder.cod_collected === 0 && (
                 <button
                   onClick={handleMarkCodCollected}
@@ -286,6 +392,63 @@ export default function Orders() {
                   <RefreshCcw size={16} />
                   <span>Initiate Gateway Refund</span>
                 </button>
+              )}
+            </div>
+
+            {/* Dispatch & Courier Logistics Snapshot */}
+            <div style={{ padding: '16px', backgroundColor: '#EFF6FF', borderRadius: 'var(--radius-sm)', border: '1px solid #BFDBFE', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Truck size={18} style={{ color: '#2563EB' }} />
+                  <strong style={{ fontSize: '0.92rem', color: '#1E3A8A' }}>Logistics & Shipping Dispatch Details</strong>
+                </div>
+                <button
+                  onClick={() => setDispatchModalOrder(selectedOrder)}
+                  className="btn-admin btn-admin-outline btn-admin-sm"
+                  style={{ fontSize: '0.74rem', padding: '3px 8px' }}
+                >
+                  Update Logistics
+                </button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', fontSize: '0.84rem' }}>
+                <div>
+                  <span style={{ color: '#64748B', display: 'block', fontSize: '0.74rem' }}>COURIER PARTNER</span>
+                  <strong>{selectedOrder.courier_name || 'Not assigned yet'}</strong>
+                </div>
+
+                <div>
+                  <span style={{ color: '#64748B', display: 'block', fontSize: '0.74rem' }}>TRACKING / AWB #</span>
+                  {selectedOrder.tracking_number ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <strong>#{selectedOrder.tracking_number}</strong>
+                      {selectedOrder.tracking_url && (
+                        <a
+                          href={selectedOrder.tracking_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: '#2563EB', display: 'inline-flex', alignItems: 'center' }}
+                          title="Open tracking"
+                        >
+                          <ExternalLink size={12} />
+                        </a>
+                      )}
+                    </div>
+                  ) : (
+                    <span style={{ color: '#94A3B8' }}>None provided</span>
+                  )}
+                </div>
+
+                <div>
+                  <span style={{ color: '#64748B', display: 'block', fontSize: '0.74rem' }}>DISPATCH DATE</span>
+                  <span>{selectedOrder.dispatch_date ? new Date(selectedOrder.dispatch_date).toLocaleString('en-IN') : 'Pending'}</span>
+                </div>
+              </div>
+
+              {selectedOrder.dispatch_notes && (
+                <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #DBEAFE', fontSize: '0.8rem', color: '#1E3A8A' }}>
+                  <strong>Notes: </strong>{selectedOrder.dispatch_notes}
+                </div>
               )}
             </div>
 
@@ -407,6 +570,20 @@ export default function Orders() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Dispatch Logistics Modal */}
+      {dispatchModalOrder && (
+        <DispatchModal
+          order={dispatchModalOrder}
+          onClose={() => setDispatchModalOrder(null)}
+          onUpdated={(updated) => {
+            loadOrders();
+            if (selectedOrder && selectedOrder.id === updated.id) {
+              setSelectedOrder(updated);
+            }
+          }}
+        />
       )}
     </div>
   );

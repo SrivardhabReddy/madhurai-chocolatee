@@ -13,45 +13,52 @@ const { Pool } = pg;
 let pgPool = null;
 let sqliteDb = null;
 let activeEngine = 'sqlite'; // 'postgres' | 'sqlite'
+let initPromise = null;
 
 // Initialize database connection
 export async function initDatabase() {
-  const dbUrl = config.databaseUrl.trim();
-  
-  if (dbUrl && (dbUrl.startsWith('postgres://') || dbUrl.startsWith('postgresql://'))) {
-    try {
-      const isRemote = !dbUrl.includes('localhost') && !dbUrl.includes('127.0.0.1');
-      pgPool = new Pool({
-        connectionString: dbUrl,
-        ssl: (process.env.NODE_ENV === 'production' || isRemote || dbUrl.includes('neon.tech') || dbUrl.includes('sslmode=require')) 
-          ? { rejectUnauthorized: false } 
-          : false,
-        max: 20,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 10000,
-      });
-      // Test connection
-      const client = await pgPool.connect();
-      await client.query('SELECT NOW()');
-      client.release();
-      activeEngine = 'postgres';
-      console.log('✅ Connected to PostgreSQL database successfully.');
-      return;
-    } catch (err) {
-      console.warn('⚠️ PostgreSQL connection failed:', err.message);
-      console.log('🔄 Falling back to embedded relational SQLite database for zero-config operation.');
-    }
-  }
+  if (initPromise) return initPromise;
 
-  // SQLite Fallback
-  const dbDir = path.resolve(__dirname, '../../../database');
-  if (!fs.existsSync(dbDir)) {
-    fs.mkdirSync(dbDir, { recursive: true });
-  }
-  const sqliteFile = path.join(dbDir, 'madhurai_chocolate.sqlite');
-  sqliteDb = new DatabaseSync(sqliteFile);
-  activeEngine = 'sqlite';
-  console.log(`✅ Using embedded database at: ${sqliteFile}`);
+  initPromise = (async () => {
+    const dbUrl = config.databaseUrl.trim();
+    
+    if (dbUrl && (dbUrl.startsWith('postgres://') || dbUrl.startsWith('postgresql://'))) {
+      try {
+        const isRemote = !dbUrl.includes('localhost') && !dbUrl.includes('127.0.0.1');
+        pgPool = new Pool({
+          connectionString: dbUrl,
+          ssl: (process.env.NODE_ENV === 'production' || isRemote || dbUrl.includes('neon.tech') || dbUrl.includes('sslmode=require')) 
+            ? { rejectUnauthorized: false } 
+            : false,
+          max: 20,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 10000,
+        });
+        // Test connection
+        const client = await pgPool.connect();
+        await client.query('SELECT NOW()');
+        client.release();
+        activeEngine = 'postgres';
+        console.log('✅ Connected to PostgreSQL database successfully.');
+        return;
+      } catch (err) {
+        console.warn('⚠️ PostgreSQL connection failed:', err.message);
+        console.log('🔄 Falling back to embedded relational SQLite database for zero-config operation.');
+      }
+    }
+
+    // SQLite Fallback
+    const dbDir = path.resolve(__dirname, '../../../database');
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true });
+    }
+    const sqliteFile = path.join(dbDir, 'madhurai_chocolate.sqlite');
+    sqliteDb = new DatabaseSync(sqliteFile);
+    activeEngine = 'sqlite';
+    console.log(`✅ Using embedded database at: ${sqliteFile}`);
+  })();
+
+  return initPromise;
 }
 
 // Convert params between Postgres ($1, $2) and SQLite (?)
@@ -68,6 +75,9 @@ function normalizeSql(sql, targetEngine) {
 
 // Unified query wrapper
 export async function query(sql, params = []) {
+  if (!pgPool && !sqliteDb) {
+    await initDatabase();
+  }
   if (activeEngine === 'postgres') {
     const normalizedSql = normalizeSql(sql, 'postgres');
     const result = await pgPool.query(normalizedSql, params);
@@ -105,6 +115,9 @@ export async function all(sql, params = []) {
 
 // Run multi-statement script (DDL / migrations)
 export async function exec(sql) {
+  if (!pgPool && !sqliteDb) {
+    await initDatabase();
+  }
   if (activeEngine === 'postgres') {
     await pgPool.query(sql);
   } else {
@@ -114,6 +127,9 @@ export async function exec(sql) {
 
 // Execute transaction
 export async function transaction(callback) {
+  if (!pgPool && !sqliteDb) {
+    await initDatabase();
+  }
   if (activeEngine === 'postgres') {
     const client = await pgPool.connect();
     try {

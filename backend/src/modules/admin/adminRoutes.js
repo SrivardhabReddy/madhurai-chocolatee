@@ -16,23 +16,56 @@ router.get('/dashboard', authenticate, requireRoles('SUPER_ADMIN', 'ADMIN', 'ORD
     // Total Orders and Revenue - ONLY add to revenue if payment is successfully completed (PAID)
     const totalOrderStats = await get(
       `SELECT COUNT(*) as total_orders, 
+              -- Total revenue strictly from completed/paid orders
               COALESCE(SUM(CASE WHEN payment_status = 'PAID' THEN total_amount ELSE 0 END), 0) as total_revenue,
-              COALESCE(SUM(CASE WHEN payment_status = 'PAID' THEN total_amount ELSE 0 END), 0) as paid_revenue,
+              -- Online revenue strictly from completed/paid online payments (UPI, Card, Net Banking)
+              COALESCE(SUM(CASE WHEN payment_status = 'PAID' AND payment_method != 'COD' THEN total_amount ELSE 0 END), 0) as online_revenue,
+              -- COD revenue strictly from collected/paid COD orders
+              COALESCE(SUM(CASE WHEN payment_status = 'PAID' AND payment_method = 'COD' THEN total_amount ELSE 0 END), 0) as cod_revenue,
+              -- Pending orders value (not yet counted in revenue)
+              COALESCE(SUM(CASE WHEN payment_status = 'PENDING' THEN total_amount ELSE 0 END), 0) as pending_revenue,
               COALESCE(SUM(CASE WHEN order_status = 'CANCELLED' THEN 1 ELSE 0 END), 0) as cancelled_orders,
               COALESCE(SUM(CASE WHEN payment_method = 'COD' THEN 1 ELSE 0 END), 0) as cod_orders,
               COALESCE(SUM(CASE WHEN payment_status = 'PENDING' THEN 1 ELSE 0 END), 0) as pending_orders,
-              COALESCE(SUM(CASE WHEN payment_status = 'PAID' THEN 1 ELSE 0 END), 0) as paid_orders
+              COALESCE(SUM(CASE WHEN payment_status = 'PAID' THEN 1 ELSE 0 END), 0) as paid_orders,
+              COALESCE(SUM(CASE WHEN order_status IN ('ORDER_PLACED', 'PAYMENT_CONFIRMED', 'PROCESSING') THEN 1 ELSE 0 END), 0) as awaiting_dispatch,
+              COALESCE(SUM(CASE WHEN order_status IN ('PACKED', 'SHIPPED', 'OUT_FOR_DELIVERY') THEN 1 ELSE 0 END), 0) as in_transit_orders,
+              COALESCE(SUM(CASE WHEN order_status = 'DELIVERED' THEN 1 ELSE 0 END), 0) as delivered_orders
        FROM orders`
     );
 
     // Today's Stats - ONLY count completed payments toward today's revenue
-    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    let istDateString = '';
+    try {
+      istDateString = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+    } catch (e) {
+      istDateString = now.toISOString().slice(0, 10);
+    }
+    const utcDateString = now.toISOString().slice(0, 10);
+
     const todayStats = await get(
       `SELECT COUNT(*) as today_orders,
-              COALESCE(SUM(CASE WHEN payment_status = 'PAID' THEN total_amount ELSE 0 END), 0) as today_revenue
+              COALESCE(SUM(CASE WHEN payment_status = 'PAID' THEN total_amount ELSE 0 END), 0) as today_revenue,
+              COALESCE(SUM(CASE WHEN payment_status = 'PAID' AND payment_method != 'COD' THEN total_amount ELSE 0 END), 0) as today_online_revenue,
+              COALESCE(SUM(CASE WHEN payment_status = 'PAID' AND payment_method = 'COD' THEN total_amount ELSE 0 END), 0) as today_cod_revenue,
+              COALESCE(SUM(CASE WHEN payment_status = 'PAID' THEN 1 ELSE 0 END), 0) as today_paid_orders,
+              COALESCE(SUM(CASE WHEN payment_status = 'PENDING' THEN 1 ELSE 0 END), 0) as today_pending_orders
        FROM orders
-       WHERE created_at >= ?`,
-      [`${today} 00:00:00`]
+       WHERE CAST(created_at AS TEXT) LIKE ? OR CAST(created_at AS TEXT) LIKE ?`,
+      [`${istDateString}%`, `${utcDateString}%`]
+    );
+
+    // List of Orders placed Today (with full dispatch and customer snapshot)
+    const todayOrdersList = await all(
+      `SELECT id, order_number, customer_name, customer_phone, customer_email, delivery_address, pincode,
+              subtotal, delivery_charge, is_free_delivery, discount_amount, total_amount, 
+              payment_status, payment_method, payment_reference, order_status,
+              courier_name, tracking_number, tracking_url, dispatch_date, dispatch_notes, created_at
+       FROM orders
+       WHERE CAST(created_at AS TEXT) LIKE ? OR CAST(created_at AS TEXT) LIKE ?
+       ORDER BY created_at DESC`,
+      [`${istDateString}%`, `${utcDateString}%`]
     );
 
     // Total Products Sold
@@ -50,9 +83,11 @@ router.get('/dashboard', authenticate, requireRoles('SUPER_ADMIN', 'ADMIN', 'ORD
       `SELECT COUNT(*) as refund_count, COALESCE(SUM(amount), 0) as total_refunded FROM refunds WHERE status = 'REFUNDED'`
     );
 
-    // Recent 10 Orders
+    // Recent 10 Orders with dispatch info
     const recentOrders = await all(
-      `SELECT id, order_number, customer_name, customer_phone, total_amount, payment_status, payment_method, order_status, created_at
+      `SELECT id, order_number, customer_name, customer_phone, customer_email, delivery_address, pincode,
+              total_amount, payment_status, payment_method, payment_reference, order_status,
+              courier_name, tracking_number, tracking_url, dispatch_date, dispatch_notes, created_at
        FROM orders ORDER BY created_at DESC LIMIT 10`
     );
 
@@ -61,12 +96,22 @@ router.get('/dashboard', authenticate, requireRoles('SUPER_ADMIN', 'ADMIN', 'ORD
       data: {
         todayOrders: parseInt(todayStats?.today_orders || 0, 10),
         todayRevenue: parseFloat(todayStats?.today_revenue || 0),
+        todayOnlineRevenue: parseFloat(todayStats?.today_online_revenue || 0),
+        todayCodRevenue: parseFloat(todayStats?.today_cod_revenue || 0),
+        todayPaidOrders: parseInt(todayStats?.today_paid_orders || 0, 10),
+        todayPendingOrders: parseInt(todayStats?.today_pending_orders || 0, 10),
+        todayOrdersList: todayOrdersList || [],
         totalOrders: parseInt(totalOrderStats?.total_orders || 0, 10),
         totalRevenue: parseFloat(totalOrderStats?.total_revenue || 0),
-        paidRevenue: parseFloat(totalOrderStats?.paid_revenue || 0),
+        onlineRevenue: parseFloat(totalOrderStats?.online_revenue || 0),
+        codRevenue: parseFloat(totalOrderStats?.cod_revenue || 0),
+        pendingRevenue: parseFloat(totalOrderStats?.pending_revenue || 0),
         pendingOrders: parseInt(totalOrderStats?.pending_orders || 0, 10),
         paidOrders: parseInt(totalOrderStats?.paid_orders || 0, 10),
         codOrders: parseInt(totalOrderStats?.cod_orders || 0, 10),
+        awaitingDispatch: parseInt(totalOrderStats?.awaiting_dispatch || 0, 10),
+        inTransitOrders: parseInt(totalOrderStats?.in_transit_orders || 0, 10),
+        deliveredOrders: parseInt(totalOrderStats?.delivered_orders || 0, 10),
         cancelledOrders: parseInt(totalOrderStats?.cancelled_orders || 0, 10),
         productsSold: parseInt(productsSoldRow?.products_sold || 0, 10),
         lowStock: parseInt(lowStockRow?.low_stock_count || 0, 10),

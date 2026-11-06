@@ -173,7 +173,7 @@ export function Terms() {
     <div style={{ padding: '60px 0 100px', backgroundColor: '#FFFFFF' }}>
       <div className="container" style={{ maxWidth: '800px', lineHeight: '1.8', color: 'var(--text-secondary)' }}>
         <h1 style={{ fontSize: '2.4rem', color: 'var(--cacao-950)', marginBottom: '24px' }}>Terms & Conditions</h1>
-        <p>By accessing or placing an order on madhuraichocolate.com, you agree to be bound by our terms of service. Products are subject to small-batch availability. Prices are listed in Indian Rupees (INR).</p>
+        <p>By accessing or placing an order on madhuraichocolates.in, you agree to be bound by our terms of service. Products are subject to small-batch availability. Prices are listed in Indian Rupees (INR).</p>
       </div>
     </div>
   );

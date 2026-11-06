@@ -463,10 +463,10 @@ router.delete('/admin/:id', authenticate, requireRoles('SUPER_ADMIN', 'ADMIN'), 
       return res.status(404).json({ success: false, message: 'Product not found.' });
     }
 
-    // Check if product is referenced in customer orders
+    // Check if product is referenced in customer orders (order_items preserves historical product snapshot)
     const hasOrders = await get('SELECT id FROM order_items WHERE product_id = ? LIMIT 1', [id]);
 
-    if (permanent === 'true' && !hasOrders) {
+    if (permanent === 'true') {
       // Clean permanent delete
       await query('DELETE FROM product_images WHERE product_id = ?', [id]);
       await query('DELETE FROM inventory_transactions WHERE product_id = ?', [id]);

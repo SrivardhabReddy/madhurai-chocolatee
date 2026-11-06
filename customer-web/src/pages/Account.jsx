@@ -240,6 +240,11 @@ export default function Account({ onNavigate }) {
                       <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                         Delivery to: {order.pincode} • {order.payment_method}
                       </span>
+                      {order.courier_name && (
+                        <div style={{ fontSize: '0.8rem', color: '#1D4ED8', fontWeight: '700', marginTop: '4px' }}>
+                          🚚 Dispatched via {order.courier_name} {order.tracking_number ? `(#${order.tracking_number})` : ''}
+                        </div>
+                      )}
                     </div>
 
                     <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '20px' }}>

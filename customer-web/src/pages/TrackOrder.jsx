@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Package, MapPin, Truck, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { Search, Package, MapPin, Truck, CheckCircle2, Clock, AlertCircle, ExternalLink } from 'lucide-react';
 import { api } from '../services/api.js';
 
 export default function TrackOrder({ onNavigate }) {
@@ -182,6 +182,64 @@ export default function TrackOrder({ onNavigate }) {
                 <div style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--cacao-950)', marginTop: '6px' }}>Delivered</div>
               </div>
             </div>
+
+            {/* Courier & Dispatch Tracking Card (If Dispatched / Shipped) */}
+            {(order.courier_name || order.tracking_number) && (
+              <div style={{
+                backgroundColor: '#EFF6FF',
+                border: '1.5px solid #BFDBFE',
+                borderRadius: 'var(--radius-md)',
+                padding: '20px',
+                marginBottom: '28px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ padding: '8px', backgroundColor: '#DBEAFE', borderRadius: '50%', color: '#1D4ED8' }}>
+                      <Truck size={20} />
+                    </div>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '1rem', color: '#1E3A8A', fontWeight: '800' }}>
+                        Dispatched via {order.courier_name || 'Courier Partner'}
+                      </h4>
+                      {order.dispatch_date && (
+                        <span style={{ fontSize: '0.78rem', color: '#475569' }}>
+                          Handed over on: {new Date(order.dispatch_date).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {order.tracking_url && (
+                    <a
+                      href={order.tracking_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-sm btn-primary"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', padding: '8px 14px' }}
+                    >
+                      <span>Track on Courier Site</span>
+                      <ExternalLink size={14} />
+                    </a>
+                  )}
+                </div>
+
+                {order.tracking_number && (
+                  <div style={{ backgroundColor: '#FFFFFF', padding: '10px 14px', borderRadius: '8px', border: '1px solid #DBEAFE', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.86rem' }}>
+                    <span style={{ color: '#64748B' }}>Consignment / AWB Tracking Number:</span>
+                    <strong style={{ color: '#1E293B', letterSpacing: '0.04em' }}>{order.tracking_number}</strong>
+                  </div>
+                )}
+
+                {order.dispatch_notes && (
+                  <div style={{ fontSize: '0.82rem', color: '#1E3A8A', lineHeight: '1.4' }}>
+                    <strong>Dispatch Note: </strong>{order.dispatch_notes}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Items */}
             <h4 style={{ fontSize: '1.05rem', color: 'var(--cacao-950)', marginBottom: '14px' }}>Items in this Delivery</h4>

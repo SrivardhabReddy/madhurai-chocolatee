@@ -26,24 +26,6 @@ export default function ProductDetail({ slug, id, onNavigate }) {
   const [activeTab, setActiveTab] = useState('description'); // 'description', 'ingredients', 'nutrition'
   const [addedToast, setAddedToast] = useState(false);
 
-  const fallbackProduct = {
-    id: 'prod_main_pb_crunch',
-    product_id: 'prod_main_pb_crunch',
-    name: 'Chocolate Crunch Peanut Butter Inside',
-    slug: 'chocolate-crunch-peanut-butter-inside',
-    weight: '500g',
-    pieces_per_pack: 40,
-    mrp: 450,
-    selling_price: 400,
-    discount: 11.11,
-    description: 'Experience pure artisanal bliss: crisp dark chocolate shell filled to the brim with roasted golden peanut butter, crushed crunchy peanut nibs, and a whisper of Madurai sea salt. Each piece is individually wrapped for peak freshness.',
-    image_url: '/chocolate-crunch-pb.jpg',
-    images: [{ image_url: '/chocolate-crunch-pb.jpg' }],
-    stock: 50,
-    selling_unit: 'BOX',
-    ingredients: 'Dark Cocoa Mass (55%), Roasted Peanuts (28%), Brown Cane Sugar, Vegetable Fat, Emulsifier (INS 322 Sunflower Lecithin), Natural Madagascan Vanilla Extract, Sea Salt. Contains Peanuts. 0% Palm Oil & Zero Trans Fat.'
-  };
-
   useEffect(() => {
     let isMounted = true;
     let retryTimeout = null;
@@ -85,10 +67,8 @@ export default function ProductDetail({ slug, id, onNavigate }) {
           return;
         }
 
-        // Fallback product after retries exhausted
         if (isMounted) {
-          setProduct(fallbackProduct);
-          setSelectedImage('/chocolate-crunch-pb.jpg');
+          setError('Product not found or currently unavailable.');
           setLoading(false);
         }
       } catch (err) {
@@ -97,8 +77,7 @@ export default function ProductDetail({ slug, id, onNavigate }) {
           return;
         }
         if (isMounted) {
-          setProduct(fallbackProduct);
-          setSelectedImage('/chocolate-crunch-pb.jpg');
+          setError('Failed to load product details.');
           setLoading(false);
         }
       }

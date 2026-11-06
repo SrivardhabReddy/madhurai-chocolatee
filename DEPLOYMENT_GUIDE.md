@@ -67,14 +67,16 @@ Under the **Environment Variables** section, add:
 
 ---
 
-## 🏷️ Connecting Your Custom Domain (e.g., `madhuraichocolate.com`)
+## 🏷️ Connecting Your Custom Domain (`madhuraichocolates.in`)
 
-When you are ready to use your own domain name:
-1. In your Render dashboard, click **Settings** > **Custom Domains**.
-2. Click **Add Custom Domain** and enter `madhuraichocolate.com` (and `www.madhuraichocolate.com`).
-3. Render will show you two DNS records (CNAME or A record).
-4. Add those records to your domain provider (GoDaddy, Namecheap, Cloudflare, Hostinger).
-5. Render automatically provisions a free, auto-renewing **SSL Certificate (HTTPS)** within minutes.
+When you are ready to connect `madhuraichocolates.in`:
+1. In your Render dashboard, click your service (`madhurai-chocolate`) > **Settings** > **Custom Domains**.
+2. Click **Add Custom Domain** and enter:
+   - `madhuraichocolates.in`
+   - `www.madhuraichocolates.in`
+3. Render will show you the exact DNS records (an **A record** / **ALIAS** for apex and a **CNAME** for `www`).
+4. Add those records to your domain DNS provider (GoDaddy, Hostinger, Namecheap, Cloudflare, BigRock).
+5. Render automatically provisions a free, auto-renewing **SSL Certificate (HTTPS)** within 5-15 minutes.
 
 ---
 

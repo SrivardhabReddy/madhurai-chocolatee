@@ -9,12 +9,31 @@ import { orderLimiter } from '../../middleware/rateLimiter.js';
 const router = Router();
 
 // Helper to generate human-readable sequential order number: MC-2026-000001
-async function generateOrderNumber() {
+async function generateOrderNumber(tx = null) {
+  const runner = tx || { get };
   const year = new Date().getFullYear();
-  const countRow = await get("SELECT COUNT(*) as count FROM orders");
-  const count = (countRow ? parseInt(countRow.count, 10) : 0) + 1;
-  const seq = String(count).padStart(6, '0');
-  return `MC-${year}-${seq}`;
+  const prefix = `MC-${year}-`;
+  const lastOrder = await runner.get(
+    "SELECT order_number FROM orders WHERE order_number LIKE ? ORDER BY order_number DESC LIMIT 1",
+    [`${prefix}%`]
+  );
+  let nextSeq = 1;
+  if (lastOrder && lastOrder.order_number) {
+    const parts = lastOrder.order_number.split('-');
+    const lastNum = parseInt(parts[parts.length - 1], 10);
+    if (!isNaN(lastNum)) {
+      nextSeq = lastNum + 1;
+    }
+  }
+
+  let orderNumber = `MC-${year}-${String(nextSeq).padStart(6, '0')}`;
+  let exists = await runner.get("SELECT id FROM orders WHERE order_number = ?", [orderNumber]);
+  while (exists) {
+    nextSeq++;
+    orderNumber = `MC-${year}-${String(nextSeq).padStart(6, '0')}`;
+    exists = await runner.get("SELECT id FROM orders WHERE order_number = ?", [orderNumber]);
+  }
+  return orderNumber;
 }
 
 // ==========================================
@@ -171,12 +190,14 @@ router.post('/', orderLimiter, optionalAuth, async (req, res, next) => {
 
     // Format full address snapshot
     const fullAddress = `${house_building}, ${street}, ${area}, Landmark: ${landmark || 'N/A'}, ${city}, ${district || city}, ${state} - ${pincode}`;
-    const orderNumber = await generateOrderNumber();
     const orderId = `ord_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const userId = req.user ? req.user.id : null;
+    let orderNumber = '';
 
     // 5. ATOMIC TRANSACTION: Create Order, Deduct Stock, Record Inventory Tx, Snapshot Items
     await transaction(async (tx) => {
+      orderNumber = await generateOrderNumber(tx);
+
       // Create Order
       await tx.query(
         `INSERT INTO orders (
@@ -515,6 +536,168 @@ router.post('/admin/:id/cod-collected', authenticate, requireRoles('SUPER_ADMIN'
     });
 
     return res.json({ success: true, message: 'Cash on Delivery marked as collected successfully.' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Helper to auto-generate tracking URLs for major Indian couriers
+function getTrackingUrl(courier, trackingNum) {
+  if (!trackingNum) return '';
+  const num = String(trackingNum).trim();
+  const c = String(courier || '').toLowerCase();
+  if (c.includes('dtdc')) return `https://www.dtdc.in/tracking/shipment-tracking.asp?trkType=AWB&strAvbNo=${encodeURIComponent(num)}`;
+  if (c.includes('delhivery')) return `https://www.delhivery.com/track/package/${encodeURIComponent(num)}`;
+  if (c.includes('blue') && c.includes('dart')) return `https://www.bluedart.com/tracking?trackNumber=${encodeURIComponent(num)}`;
+  if (c.includes('speed') || c.includes('post') || c.includes('india post')) return `https://www.indiapost.gov.in/_layouts/15/dpt.cept.tracking/trackconsignment.aspx`;
+  if (c.includes('shadowfax')) return `https://tracker.shadowfax.in/#/track/${encodeURIComponent(num)}`;
+  if (c.includes('ecom') || c.includes('express')) return `https://ecomexpress.in/tracking/?awb_full_detail=${encodeURIComponent(num)}`;
+  return '';
+}
+
+// Update order dispatch logistics (editable courier, tracking number, URL, status, notes)
+router.patch('/admin/:id/dispatch', authenticate, requireRoles('SUPER_ADMIN', 'ADMIN', 'ORDER_MANAGER'), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const {
+      order_status,
+      courier_name,
+      tracking_number,
+      tracking_url,
+      dispatch_date,
+      dispatch_notes
+    } = req.body;
+
+    const order = await get('SELECT * FROM orders WHERE id = ?', [id]);
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found.' });
+
+    const newStatus = order_status || order.order_status;
+    const cleanCourier = courier_name !== undefined ? courier_name : order.courier_name;
+    const cleanTracking = tracking_number !== undefined ? tracking_number : order.tracking_number;
+    let finalTrackingUrl = tracking_url !== undefined ? tracking_url : order.tracking_url;
+    if (!finalTrackingUrl && cleanCourier && cleanTracking) {
+      finalTrackingUrl = getTrackingUrl(cleanCourier, cleanTracking);
+    }
+
+    const finalDispatchDate = dispatch_date !== undefined ? dispatch_date : (order.dispatch_date || new Date().toISOString().replace('T', ' ').slice(0, 19));
+    const finalDispatchNotes = dispatch_notes !== undefined ? dispatch_notes : order.dispatch_notes;
+
+    await query(
+      `UPDATE orders SET 
+        order_status = ?, 
+        courier_name = ?, 
+        tracking_number = ?, 
+        tracking_url = ?, 
+        dispatch_date = ?, 
+        dispatch_notes = ?, 
+        dispatched_by = ?, 
+        updated_at = CURRENT_TIMESTAMP 
+       WHERE id = ?`,
+      [
+        newStatus,
+        cleanCourier || null,
+        cleanTracking || null,
+        finalTrackingUrl || null,
+        finalDispatchDate || null,
+        finalDispatchNotes || null,
+        req.user.email,
+        id
+      ]
+    );
+
+    // If status changed to CANCELLED, restock inventory
+    if (newStatus === 'CANCELLED' && order.order_status !== 'CANCELLED') {
+      const items = await all('SELECT * FROM order_items WHERE order_id = ?', [id]);
+      for (const item of items) {
+        await query('UPDATE inventory SET current_stock = current_stock + ? WHERE product_id = ?', [
+          item.quantity,
+          item.product_id
+        ]);
+        await query('UPDATE products SET stock = stock + ? WHERE id = ?', [item.quantity, item.product_id]);
+      }
+    }
+
+    await recordAuditLog({
+      adminId: req.user.id,
+      adminEmail: req.user.email,
+      action: 'ORDER_DISPATCH_UPDATE',
+      entity: 'ORDER',
+      entityId: id,
+      oldValue: {
+        order_status: order.order_status,
+        courier_name: order.courier_name,
+        tracking_number: order.tracking_number
+      },
+      newValue: {
+        order_status: newStatus,
+        courier_name: cleanCourier,
+        tracking_number: cleanTracking,
+        tracking_url: finalTrackingUrl
+      },
+      req
+    });
+
+    const updated = await get('SELECT * FROM orders WHERE id = ?', [id]);
+    return res.json({
+      success: true,
+      message: `Order ${order.order_number} dispatch details successfully updated.`,
+      data: updated
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Admin Mark Order as PAID (Online verified / direct payment)
+router.post('/admin/:id/mark-paid', authenticate, requireRoles('SUPER_ADMIN', 'ADMIN', 'ORDER_MANAGER'), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { payment_reference = '' } = req.body;
+
+    const order = await get('SELECT * FROM orders WHERE id = ?', [id]);
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found.' });
+
+    const ref = payment_reference.trim() || `VERIFIED_ONLINE_${Date.now()}`;
+
+    await transaction(async (tx) => {
+      await tx.query(
+        `UPDATE orders SET payment_status = 'PAID', order_status = CASE WHEN order_status = 'ORDER_PLACED' THEN 'PAYMENT_CONFIRMED' ELSE order_status END, payment_reference = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+        [ref, id]
+      );
+
+      // Check if a payment record exists
+      const existingPayment = await tx.get('SELECT id FROM payments WHERE order_id = ? ORDER BY created_at DESC LIMIT 1', [id]);
+      if (existingPayment) {
+        await tx.query(
+          `UPDATE payments SET status = 'SUCCESS', gateway_payment_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+          [ref, existingPayment.id]
+        );
+      } else {
+        await tx.query(
+          `INSERT INTO payments (id, order_id, gateway, amount, currency, status, payment_method, gateway_payment_id)
+           VALUES (?, ?, 'MANUAL_VERIFY', ?, 'INR', 'SUCCESS', ?, ?)`,
+          [`pay_ver_${Date.now()}`, id, order.total_amount, order.payment_method || 'UPI_QR', ref]
+        );
+      }
+    });
+
+    await recordAuditLog({
+      adminId: req.user.id,
+      adminEmail: req.user.email,
+      action: 'PAYMENT_MANUAL_VERIFY',
+      entity: 'ORDER',
+      entityId: id,
+      oldValue: { payment_status: order.payment_status },
+      newValue: { payment_status: 'PAID', payment_reference: ref },
+      req
+    });
+
+    const updated = await get('SELECT * FROM orders WHERE id = ?', [id]);
+    return res.json({
+      success: true,
+      message: `Order ${order.order_number} marked as PAID online.`,
+      data: updated
+    });
   } catch (err) {
     next(err);
   }

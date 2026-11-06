@@ -268,6 +268,13 @@ CREATE TABLE IF NOT EXISTS orders (
     estimated_min_days INTEGER NOT NULL DEFAULT 2,
     estimated_max_days INTEGER NOT NULL DEFAULT 5,
     customer_notes TEXT,
+    courier_name TEXT,
+    tracking_number TEXT,
+    tracking_url TEXT,
+    dispatch_date TEXT,
+    dispatch_notes TEXT,
+    dispatched_by TEXT,
+    payment_reference TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

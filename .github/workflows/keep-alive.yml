@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Ping Render Backend Health Endpoint
         run: |
-          RENDER_URL="${{ secrets.RENDER_APP_URL || 'https://madhurai-chocolate.onrender.com' }}"
+          RENDER_URL="${{ secrets.RENDER_APP_URL || 'https://madhuraichocolates.in' }}"
           echo "Pinging $RENDER_URL/health to keep Render service awake..."
           RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "$RENDER_URL/health" || true)
           echo "HTTP Response Status: $RESPONSE"

@@ -61,27 +61,15 @@ export default function Home({ onNavigate }) {
     };
   }, []);
 
-  const fallbackProduct = {
-    id: 'prod_main_pb_crunch',
-    product_id: 'prod_main_pb_crunch',
-    name: 'Chocolate Crunch Peanut Butter Inside',
-    slug: 'chocolate-crunch-peanut-butter-inside',
-    weight: '500g',
-    pieces_per_pack: 40,
-    mrp: 450,
-    selling_price: 400,
-    discount: 11.11,
-    description: 'Freshly roasted stone-ground peanut butter core enveloped in 60% South Indian single-origin dark chocolate.',
-    image_url: '/chocolate-crunch-pb.jpg',
-    is_bestseller: 1,
-    stock: 50
-  };
-
   const mainProduct = (products && products.length > 0)
-    ? (products.find(p => p.slug === 'chocolate-crunch-peanut-butter-inside') || products[0])
-    : fallbackProduct;
-  const bestsellers = (products && products.length > 0) ? products.filter(p => p.is_bestseller === 1) : [fallbackProduct];
-  const newProducts = (products && products.length > 0) ? products.filter(p => p.is_new === 1) : [fallbackProduct];
+    ? (products.find(p => p.is_featured === 1) || products[0])
+    : null;
+  const bestsellers = (products && products.length > 0) 
+    ? (products.filter(p => p.is_bestseller === 1).length > 0 ? products.filter(p => p.is_bestseller === 1) : products)
+    : [];
+  const newProducts = (products && products.length > 0) 
+    ? (products.filter(p => p.is_new === 1).length > 0 ? products.filter(p => p.is_new === 1) : products)
+    : [];
 
   const faqs = [
     {
@@ -173,10 +161,10 @@ export default function Home({ onNavigate }) {
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
               <button
-                onClick={() => onNavigate('product_detail', { slug: mainProduct.slug, id: mainProduct.id })}
+                onClick={() => mainProduct ? onNavigate('product_detail', { slug: mainProduct.slug, id: mainProduct.id }) : onNavigate('products')}
                 className="btn btn-gold btn-lg"
               >
-                <span>Order {mainProduct.name} ({mainProduct.weight || '500g'})</span>
+                <span>Order {mainProduct ? `${mainProduct.name} (${mainProduct.weight || '320g'})` : 'Artisanal Chocolates'}</span>
                 <ArrowRight size={18} />
               </button>
 
@@ -193,7 +181,7 @@ export default function Home({ onNavigate }) {
             <div style={{ display: 'flex', gap: '24px', marginTop: '40px', fontSize: '0.85rem', color: 'var(--cream-300)' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <CheckCircle2 size={16} style={{ color: 'var(--peanut-gold-400)' }} />
-                ₹{mainProduct.pieces_per_pack > 1 ? Math.round(mainProduct.selling_price / mainProduct.pieces_per_pack) : mainProduct.selling_price} per piece value
+                ₹{mainProduct?.pieces_per_pack > 1 ? Math.round((mainProduct.selling_price || 0) / mainProduct.pieces_per_pack) : (mainProduct?.selling_price || 10)} per piece value
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <CheckCircle2 size={16} style={{ color: 'var(--peanut-gold-400)' }} />

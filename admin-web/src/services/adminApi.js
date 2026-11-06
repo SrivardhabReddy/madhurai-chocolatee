@@ -105,6 +105,16 @@ export const adminApi = {
       method: 'POST',
       body: JSON.stringify({ amount, reason })
     }),
+  updateDispatch: (id, dispatchData) =>
+    adminRequest(`/orders/admin/${id}/dispatch`, {
+      method: 'PATCH',
+      body: JSON.stringify(dispatchData)
+    }),
+  markOrderPaid: (id, payment_reference = '') =>
+    adminRequest(`/orders/admin/${id}/mark-paid`, {
+      method: 'POST',
+      body: JSON.stringify({ payment_reference })
+    }),
 
   // Inventory
   getInventoryOverview: (filter) =>

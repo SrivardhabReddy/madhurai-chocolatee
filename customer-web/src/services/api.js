@@ -90,6 +90,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ order_id: orderId, payment_id: paymentId })
     }),
+  confirmUpiPayment: (orderId, paymentData = {}) =>
+    request('/payments/confirm-upi', {
+      method: 'POST',
+      body: JSON.stringify({ order_id: orderId, ...paymentData })
+    }),
 
   // Auth
   login: (email, password) =>

@@ -7,10 +7,7 @@ async function startServer() {
   try {
     console.log('🚀 Initializing Madhurai Chocolate Backend...');
     
-    // Connect to database and run schema/seeds
-    await initDatabase();
-    await runSeeds();
-
+    // 1. Immediately bind HTTP server to port so Render detects readiness in < 200ms
     const server = app.listen(config.port, () => {
       console.log(`\n======================================================`);
       console.log(`🍫 MADHURAI CHOCOLATE BACKEND API IS LIVE`);
@@ -21,6 +18,13 @@ async function startServer() {
       console.log(`   Admin Web:      ${config.adminAppUrl}`);
       console.log(`======================================================\n`);
     });
+
+    // 2. Connect to database and verify schemas asynchronously (non-blocking)
+    initDatabase()
+      .then(() => runSeeds())
+      .catch((err) => {
+        console.error('⚠️ Database startup notice:', err.message);
+      });
 
     const shutdown = (signal) => {
       console.log(`\nReceived ${signal}. Gracefully shutting down...`);

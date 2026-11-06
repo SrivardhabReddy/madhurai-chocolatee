@@ -10,6 +10,18 @@ const __dirname = path.dirname(__filename);
 
 export async function runSeeds() {
   await runMigrations();
+
+  // Fast-boot check: if the database is already seeded, skip heavy seeding routine
+  try {
+    const alreadySeeded = await get('SELECT id FROM users WHERE email = ?', ['madhuraicompany@gmail.com']);
+    if (alreadySeeded) {
+      console.log('⚡ Database schema & initial data verified. Instant boot enabled.');
+      return;
+    }
+  } catch (err) {
+    // If table doesn't exist yet, proceed with full seed
+  }
+
   console.log('🌱 Seeding database with production initial data...');
 
   const adminPassHash = await bcrypt.hash('Admin@123456', 10);
@@ -245,45 +257,17 @@ export async function runSeeds() {
       is_featured: 1,
       is_bestseller: 0,
       is_new: 0
-    },
-    {
-      id: 'prod_1792819116609_lhst',
-      name: 'MADHURAI mini bites',
-      slug: 'madhurai-mini-bites',
-      desc: 'The real love of crunchy peanut butter is filled inside the chocolate it makes lava inside in your mouth.',
-      category_id: 'cat_crunch_specials',
-      mrp: 220.00,
-      selling_price: 190.00,
-      discount: 13.64,
-      stock: 79,
-      weight: '320g',
-      selling_unit: 'BOX',
-      pieces_per_pack: 40,
-      ingredients: 'Sugar, Cocoa Powder, Milk Powders, Vegetable Fat, Peanuts, Peanut Butter, Sugar Syrup, Vanilla Essence, Sea Salt. 0% Palm Oil & Zero Trans Fat.',
-      nutrition: JSON.stringify({
-        serving_size: 'per 100g',
-        calories: '526 kcal',
-        protein: '9.2g',
-        total_fat: '29.5g',
-        saturated_fat: '19.6g',
-        trans_fat: '0.1g',
-        carbohydrates: '58g',
-        dietary_fiber: '1.2g',
-        sugars: '48.5g',
-        sodium: '110mg'
-      }),
-      delivery_available: 1,
-      cod_available: 1,
-      status: 'ACTIVE',
-      is_featured: 1,
-      is_bestseller: 1,
-      is_new: 1
     }
   ];
 
-  for (const p of products) {
-    const existing = await get('SELECT id, deleted_at FROM products WHERE id = ?', [p.id]);
-    if (!existing) {
+  // 5. Products (Only seed once on a brand-new empty database! Never overwrite admin changes or re-insert deleted products)
+  const seededCheck = await get("SELECT setting_value FROM business_settings WHERE setting_key = 'initial_products_seeded'");
+  const anyProduct = await get("SELECT id FROM products LIMIT 1");
+  const alreadySeeded = seededCheck?.setting_value === 'true' || anyProduct !== null;
+
+  if (!alreadySeeded) {
+    console.log('📦 Seeding initial catalog products for the first time...');
+    for (const p of products) {
       await query(
         `INSERT INTO products (
           id, name, slug, description, category_id, mrp, selling_price, discount, stock, 
@@ -308,26 +292,32 @@ export async function runSeeds() {
         'INSERT INTO inventory_transactions (id, product_id, type, quantity, previous_stock, new_stock, reference_id, notes, created_by) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?)',
         [`tx_init_${p.id}`, p.id, 'RESTOCK', p.stock, p.stock, 'INIT-BATCH-2026', 'Initial warehouse stock allocation', 'usr_super_admin']
       );
-    } else if (p.id === 'prod_main_pb_crunch' && existing.deleted_at) {
-      await query('UPDATE products SET deleted_at = NULL, status = "ACTIVE" WHERE id = ?', [p.id]);
     }
-  }
 
-  // 6. Product Images
-  const images = [
-    { id: 'img_pb_1', prod_id: 'prod_main_pb_crunch', url: '/uploads/chocolate-crunch-pb.jpg', alt: 'Chocolate Crunch Peanut Butter Inside - Broken bite', order: 1, primary: 1 },
-    { id: 'img_pb_2', prod_id: 'prod_main_pb_crunch', url: '/uploads/madhurai-pack-box.jpg', alt: 'Madhurai 500g 40 pieces luxury gold box', order: 2, primary: 0 },
-    { id: 'img_festive_1', prod_id: 'prod_royal_festive_box', url: '/uploads/madhurai-pack-box.jpg', alt: 'Royal Heritage Festive Box', order: 1, primary: 1 },
-    { id: 'img_truffle_1', prod_id: 'prod_dark_truffle_bites', url: '/uploads/chocolate-crunch-pb.jpg', alt: 'Dark Truffle Silk Bites', order: 1, primary: 1 },
-    { id: 'img_slab_1', prod_id: 'prod_pb_slab', url: '/uploads/madhurai-hero-banner.jpg', alt: 'Peanut Butter Chocolate Slab', order: 1, primary: 1 },
-    { id: 'img_mini_bites_1', prod_id: 'prod_1792819116609_lhst', url: '/uploads/img_1792819113635_kijy.png', alt: 'MADHURAI mini bites', order: 1, primary: 1 }
-  ];
-  for (const img of images) {
-    const existing = await get('SELECT id FROM product_images WHERE id = ?', [img.id]);
-    if (!existing) {
+    // 6. Product Images (Only for fresh seed)
+    const images = [
+      { id: 'img_pb_1', prod_id: 'prod_main_pb_crunch', url: '/uploads/chocolate-crunch-pb.jpg', alt: 'Chocolate Crunch Peanut Butter Inside - Broken bite', order: 1, primary: 1 },
+      { id: 'img_pb_2', prod_id: 'prod_main_pb_crunch', url: '/uploads/madhurai-pack-box.jpg', alt: 'Madhurai 500g 40 pieces luxury gold box', order: 2, primary: 0 },
+      { id: 'img_festive_1', prod_id: 'prod_royal_festive_box', url: '/uploads/madhurai-pack-box.jpg', alt: 'Royal Heritage Festive Box', order: 1, primary: 1 },
+      { id: 'img_truffle_1', prod_id: 'prod_dark_truffle_bites', url: '/uploads/chocolate-crunch-pb.jpg', alt: 'Dark Truffle Silk Bites', order: 1, primary: 1 },
+      { id: 'img_slab_1', prod_id: 'prod_pb_slab', url: '/uploads/madhurai-hero-banner.jpg', alt: 'Peanut Butter Chocolate Slab', order: 1, primary: 1 }
+    ];
+    for (const img of images) {
       await query(
         'INSERT INTO product_images (id, product_id, image_url, alt_text, display_order, is_primary) VALUES (?, ?, ?, ?, ?, ?)',
         [img.id, img.prod_id, img.url, img.alt, img.order, img.primary]
+      );
+    }
+
+    await query(
+      "INSERT OR REPLACE INTO business_settings (id, setting_key, setting_value, group_name, description) VALUES ('set_initial_products_seeded', 'initial_products_seeded', 'true', 'SYSTEM', 'Initial catalog seeded flag')"
+    );
+  } else {
+    // Catalog is managed by admin - do not touch products or restore deleted products
+    const flagExists = await get("SELECT id FROM business_settings WHERE setting_key = 'initial_products_seeded'");
+    if (!flagExists) {
+      await query(
+        "INSERT INTO business_settings (id, setting_key, setting_value, group_name, description) VALUES ('set_initial_products_seeded', 'initial_products_seeded', 'true', 'SYSTEM', 'Initial catalog seeded flag')"
       );
     }
   }

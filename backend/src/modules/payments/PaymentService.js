@@ -13,8 +13,10 @@ export class PaymentService {
     const gatewayOrderId = `gord_${Date.now()}_${order.order_number}`;
     const amount = parseFloat(order.total_amount).toFixed(2);
     
-    // Dynamically retrieve configured merchant UPI ID from database settings or configuration fallback
+    // Dynamically retrieve configured merchant UPI ID and payee name from database settings
     let merchantVpa = config.upiVpa || '9676823113-2@ybl';
+    let payeeName = 'SAMBAYA PALEM PADMA'; // Default to verified bank account name to prevent payee mismatch flags
+    let merchantCode = null;
     try {
       const vpaRow = await get(
         "SELECT setting_value FROM business_settings WHERE setting_key = 'upi_vpa' OR setting_key = 'payment_upi_vpa' ORDER BY CASE WHEN setting_key = 'upi_vpa' THEN 1 ELSE 2 END LIMIT 1"
@@ -22,13 +24,33 @@ export class PaymentService {
       if (vpaRow && vpaRow.setting_value && vpaRow.setting_value.trim()) {
         merchantVpa = vpaRow.setting_value.trim();
       }
+
+      const nameRow = await get(
+        "SELECT setting_value FROM business_settings WHERE setting_key = 'upi_payee_name' LIMIT 1"
+      );
+      if (nameRow && nameRow.setting_value && nameRow.setting_value.trim()) {
+        payeeName = nameRow.setting_value.trim();
+      }
+
+      const mcRow = await get(
+        "SELECT setting_value FROM business_settings WHERE setting_key = 'upi_merchant_code' LIMIT 1"
+      );
+      if (mcRow && mcRow.setting_value && mcRow.setting_value.trim()) {
+        merchantCode = mcRow.setting_value.trim();
+      }
     } catch (e) {
-      // fallback to config.upiVpa
+      // fallback to defaults
     }
 
-    // Construct dynamic Indian UPI QR String according to NPCI UPI specifications
-    // upi://pay?pa=VPA&pn=NAME&am=AMOUNT&tr=TRANSACTION_REF&cu=INR&tn=NOTE
-    const upiQrString = `upi://pay?pa=${encodeURIComponent(merchantVpa)}&pn=${encodeURIComponent('Madhurai Chocolate')}&am=${amount}&tr=${encodeURIComponent(order.order_number)}&cu=INR&tn=${encodeURIComponent('Madhurai Order ' + order.order_number)}`;
+    // Construct dynamic Indian UPI URI according to NPCI UPI specifications
+    // Preserve unencoded @ in pa parameter as required by NPCI specification (encoding as %40 causes PhonePe/GPay parse rejections)
+    const cleanVpa = merchantVpa.trim();
+    const cleanPayee = encodeURIComponent(payeeName.trim());
+    const cleanTn = encodeURIComponent(`Madhurai Order ${order.order_number}`);
+    let upiQrString = `upi://pay?pa=${cleanVpa}&pn=${cleanPayee}&am=${amount}&cu=INR&tn=${cleanTn}&mode=02`;
+    if (merchantCode) {
+      upiQrString += `&mc=${encodeURIComponent(merchantCode)}&tr=${encodeURIComponent(order.order_number)}`;
+    }
     
     // Generate QR Data URL
     let qrDataUrl = null;
@@ -74,7 +96,8 @@ export class PaymentService {
       gateway: config.paymentGateway,
       upiQrString,
       qrDataUrl,
-      upiVpa: merchantVpa
+      upiVpa: merchantVpa,
+      upiPayeeName: payeeName
     };
   }
 
