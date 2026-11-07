@@ -23,11 +23,14 @@ export const config = {
   jwtSecret: process.env.JWT_SECRET || 'madhurai_super_secret_jwt_key_2026_cacao_peanut_butter',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   
-  // Payment Gateway
-  paymentGateway: process.env.PAYMENT_GATEWAY || 'MOCK_SANDBOX', // 'MOCK_SANDBOX' | 'RAZORPAY' | 'CASHFREE' | 'PHONEPE'
-  paymentGatewayKey: process.env.PAYMENT_GATEWAY_KEY || 'rzp_test_madhurai_demo_key',
-  paymentGatewaySecret: process.env.PAYMENT_GATEWAY_SECRET || 'rzp_test_madhurai_secret_123',
-  paymentWebhookSecret: process.env.PAYMENT_WEBHOOK_SECRET || 'whsec_madhurai_webhook_secret_999',
+  // Payment Gateway (Razorpay)
+  paymentGateway: process.env.PAYMENT_GATEWAY || 'RAZORPAY',
+  razorpayKeyId: process.env.RAZORPAY_KEY_ID || process.env.PAYMENT_GATEWAY_KEY || 'rzp_test_madhurai_demo_key',
+  razorpayKeySecret: process.env.RAZORPAY_KEY_SECRET || process.env.PAYMENT_GATEWAY_SECRET || 'rzp_test_madhurai_secret_123',
+  razorpayWebhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || process.env.PAYMENT_WEBHOOK_SECRET || 'whsec_madhurai_webhook_secret_999',
+  paymentGatewayKey: process.env.RAZORPAY_KEY_ID || process.env.PAYMENT_GATEWAY_KEY || 'rzp_test_madhurai_demo_key',
+  paymentGatewaySecret: process.env.RAZORPAY_KEY_SECRET || process.env.PAYMENT_GATEWAY_SECRET || 'rzp_test_madhurai_secret_123',
+  paymentWebhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || process.env.PAYMENT_WEBHOOK_SECRET || 'whsec_madhurai_webhook_secret_999',
   upiVpa: process.env.UPI_VPA || '9676823113-2@ybl',
   
   // Email / Notifications

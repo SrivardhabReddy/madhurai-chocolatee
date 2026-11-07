@@ -209,11 +209,11 @@ export default function Settings() {
                   <label className="admin-label">Payment Gateway Adapter</label>
                   <select
                     className="admin-select"
-                    value={settings.payment_gateway_provider || 'CASHFREE'}
+                    value={settings.payment_gateway_provider || 'RAZORPAY'}
                     onChange={(e) => handleChange('payment_gateway_provider', e.target.value)}
                   >
-                    <option value="CASHFREE">Cashfree Payments (UPI QR / Intent)</option>
-                    <option value="RAZORPAY">Razorpay</option>
+                    <option value="RAZORPAY">Razorpay (Recommended — UPI, Cards, NetBanking, Wallets)</option>
+                    <option value="CASHFREE">Cashfree Payments</option>
                     <option value="PHONEPE">PhonePe PG</option>
                   </select>
                 </div>
@@ -221,27 +221,34 @@ export default function Settings() {
                   <label className="admin-label">Gateway Environment Mode</label>
                   <select
                     className="admin-select"
-                    value={settings.payment_mode || 'SANDBOX'}
+                    value={settings.payment_mode || 'PRODUCTION'}
                     onChange={(e) => handleChange('payment_mode', e.target.value)}
                   >
-                    <option value="SANDBOX">Sandbox / Testing (Simulated Webhooks)</option>
                     <option value="PRODUCTION">Production / Live</option>
+                    <option value="SANDBOX">Sandbox / Testing</option>
                   </select>
                 </div>
               </div>
 
               <div className="admin-grid-2">
                 <div className="admin-form-group">
-                  <label className="admin-label">Merchant ID / App ID</label>
+                  <label className="admin-label">Razorpay Key ID</label>
                   <input
                     type="text"
                     className="admin-input"
-                    value={settings.payment_merchant_id || ''}
-                    onChange={(e) => handleChange('payment_merchant_id', e.target.value)}
+                    placeholder="rzp_live_... or rzp_test_..."
+                    value={settings.payment_merchant_id || settings.razorpay_key_id || ''}
+                    onChange={(e) => {
+                      handleChange('payment_merchant_id', e.target.value);
+                      handleChange('razorpay_key_id', e.target.value);
+                    }}
                   />
+                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                    Your official Key ID from the Razorpay Dashboard (API Keys section).
+                  </div>
                 </div>
                 <div className="admin-form-group">
-                  <label className="admin-label">Business UPI VPA (for NPCI QR Intent)</label>
+                  <label className="admin-label">Business UPI ID (Fallback / Support)</label>
                   <input
                     type="text"
                     className="admin-input"
@@ -253,7 +260,7 @@ export default function Settings() {
                     }}
                   />
                   <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
-                    Used for generating order-specific dynamic QR codes with exact transaction amount and reference.
+                    Merchant VPA linked to the business account for payment reconciliation.
                   </div>
                 </div>
               </div>

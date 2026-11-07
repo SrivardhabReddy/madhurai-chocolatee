@@ -521,9 +521,9 @@ export default function Home({ onNavigate }) {
               <div style={{ width: '44px', height: '44px', borderRadius: '12px', backgroundColor: 'var(--peanut-gold-100)', color: 'var(--peanut-gold-700)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
                 <ShieldCheck size={22} />
               </div>
-              <h3 style={{ fontSize: '1.15rem', color: 'var(--cacao-950)', marginBottom: '8px' }}>Direct UPI & Secure Payments</h3>
+              <h3 style={{ fontSize: '1.15rem', color: 'var(--cacao-950)', marginBottom: '8px' }}>Razorpay Secure Payments</h3>
               <p style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
-                Order-specific dynamic NPCI UPI QR code generation and instant verification across all major Indian banking and payment apps.
+                Instant checkout with UPI (Google Pay, PhonePe, Paytm, CRED), Debit/Credit Cards, NetBanking, and Wallets via RBI-authorized Razorpay.
               </p>
             </div>
           </div>

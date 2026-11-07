@@ -15,6 +15,12 @@ services:
       - key: JWT_EXPIRES_IN
         value: 7d
       - key: PAYMENT_GATEWAY
-        value: MOCK_SANDBOX
+        value: RAZORPAY
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
       - key: UPI_VPA
         value: 9676823113-2@ybl

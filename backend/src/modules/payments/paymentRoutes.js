@@ -35,19 +35,31 @@ router.post('/create', async (req, res, next) => {
   }
 });
 
-// Verify client payment
+// Verify client payment (Razorpay Checkout verification)
 router.post('/verify', async (req, res, next) => {
   try {
-    const { order_id, payment_id, gateway_payment_id, signature } = req.body;
-    if (!order_id || !payment_id) {
-      return res.status(400).json({ success: false, message: 'Order ID and Payment ID are required.' });
+    const { 
+      order_id, 
+      payment_id, 
+      razorpay_order_id, 
+      razorpay_payment_id, 
+      razorpay_signature, 
+      gateway_payment_id, 
+      signature 
+    } = req.body;
+
+    if (!order_id && !payment_id && !razorpay_order_id) {
+      return res.status(400).json({ success: false, message: 'Order reference is required for verification.' });
     }
 
     const result = await PaymentService.verifyPayment({
       orderId: order_id,
       paymentId: payment_id,
-      gatewayPaymentId: gateway_payment_id || `gpay_${Date.now()}`,
-      signature: signature || 'mock_sig'
+      razorpayOrderId: razorpay_order_id,
+      razorpayPaymentId: razorpay_payment_id || gateway_payment_id,
+      razorpaySignature: razorpay_signature || signature,
+      gatewayPaymentId: razorpay_payment_id || gateway_payment_id,
+      signature: razorpay_signature || signature
     });
 
     return res.json({ success: true, ...result });

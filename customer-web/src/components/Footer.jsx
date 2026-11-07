@@ -173,7 +173,7 @@ export default function Footer({ onNavigate }) {
                 Supported Payment Methods
               </span>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                <span className="badge badge-dark" style={{ border: '1px solid rgba(245, 158, 11, 0.3)' }}>Dynamic UPI QR</span>
+                <span className="badge badge-dark" style={{ border: '1px solid rgba(245, 158, 11, 0.3)' }}>Razorpay Secure</span>
                 <span className="badge badge-dark">GPay</span>
                 <span className="badge badge-dark">PhonePe</span>
                 <span className="badge badge-dark">Paytm</span>

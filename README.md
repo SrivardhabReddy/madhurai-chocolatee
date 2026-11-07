@@ -50,7 +50,7 @@ madhurai.original_website/
 ├── customer-web/             # Customer storefront React application (Port 3000)
 │   ├── public/               # Favicon, banners, brand assets
 │   ├── src/
-│   │   ├── components/       # Navbar, Footer, ProductCard, DeliveryChecker, UPIQRModal
+│   │   ├── components/       # Navbar, Footer, ProductCard, DeliveryChecker, Razorpay Checkout
 │   │   ├── context/          # AuthContext, CartContext
 │   │   ├── pages/            # Home, Catalog, Detail, Cart, Checkout, Tracking, Account
 │   │   ├── services/         # api.js client

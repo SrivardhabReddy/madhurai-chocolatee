@@ -14,7 +14,6 @@ import {
 import { useCart } from '../context/CartContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { api } from '../services/api.js';
-import UPIQRModal from '../components/UPIQRModal.jsx';
 
 export default function Checkout({ onNavigate }) {
   const { cartItems, clearCart, deliveryPincode, setDeliveryPincode, appliedCoupon, setAppliedCoupon, removeCoupon } = useCart();
@@ -37,7 +36,7 @@ export default function Checkout({ onNavigate }) {
   });
 
   const [savedAddresses, setSavedAddresses] = useState([]);
-  const [paymentMethod, setPaymentMethod] = useState('UPI_QR'); // 'UPI_QR', 'CARD', 'NET_BANKING', 'COD'
+  const [paymentMethod, setPaymentMethod] = useState('RAZORPAY'); // 'RAZORPAY' | 'COD'
   
   // Serviceability State
   const [serviceability, setServiceability] = useState(null);
@@ -49,11 +48,6 @@ export default function Checkout({ onNavigate }) {
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [orderSubmitting, setOrderSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
-
-  // UPI QR Modal State
-  const [upiModalOpen, setUpiModalOpen] = useState(false);
-  const [createdOrder, setCreatedOrder] = useState(null);
-  const [paymentData, setPaymentData] = useState(null);
 
   // Coupon Entry in Payment Section State
   const [couponInput, setCouponInput] = useState(appliedCoupon?.code || '');
@@ -311,34 +305,96 @@ export default function Checkout({ onNavigate }) {
           return;
         }
 
-        // For Online Payments (UPI QR / Cards), initialize payment intent
-        const payRes = await api.createPayment(orderInfo.orderId, paymentMethod);
+        // For Online Payments: Launch official Razorpay Checkout SDK
+        const payRes = await api.createPayment(orderInfo.orderId, 'RAZORPAY');
         if (payRes.success && payRes.data) {
-          setCreatedOrder({
-            id: orderInfo.orderId,
-            order_number: orderInfo.orderNumber,
-            total_amount: orderInfo.totalAmount
-          });
-          setPaymentData(payRes.data);
-          setUpiModalOpen(true);
+          const pData = payRes.data;
+
+          const launchRazorpayModal = () => {
+            const options = {
+              key: pData.keyId,
+              amount: pData.amount, // amount in paise
+              currency: pData.currency || 'INR',
+              name: 'Madhurai Chocolate',
+              description: `Artisanal Box Order #${pData.orderNumber || orderInfo.orderNumber}`,
+              image: '/favicon.svg',
+              order_id: pData.razorpayOrderId,
+              handler: async function (response) {
+                try {
+                  setOrderSubmitting(true);
+                  const verifyRes = await api.verifyPayment({
+                    order_id: orderInfo.orderId,
+                    payment_id: pData.paymentId,
+                    razorpay_order_id: response.razorpay_order_id,
+                    razorpay_payment_id: response.razorpay_payment_id,
+                    razorpay_signature: response.razorpay_signature
+                  });
+
+                  if (verifyRes.success) {
+                    clearCart();
+                    onNavigate('order_success', { orderId: orderInfo.orderId });
+                  } else {
+                    setFormError(verifyRes.message || 'Payment verification failed. Please contact support.');
+                  }
+                } catch (vErr) {
+                  setFormError(vErr.message || 'Payment signature verification failed.');
+                } finally {
+                  setOrderSubmitting(false);
+                }
+              },
+              prefill: {
+                name: formData.customer_name || pData.customerName || '',
+                email: formData.customer_email || pData.customerEmail || '',
+                contact: formData.customer_phone || pData.customerPhone || ''
+              },
+              notes: {
+                order_id: String(orderInfo.orderId),
+                order_number: String(orderInfo.orderNumber || ''),
+                pincode: formData.pincode
+              },
+              theme: {
+                color: '#2D150B' // Rich dark cacao brown
+              },
+              modal: {
+                ondismiss: function () {
+                  setOrderSubmitting(false);
+                }
+              }
+            };
+
+            const rzp = new window.Razorpay(options);
+            rzp.on('payment.failed', function (resp) {
+              setFormError(`Payment failed: ${resp.error?.description || resp.error?.reason || 'Transaction could not be completed'}`);
+              setOrderSubmitting(false);
+            });
+            rzp.open();
+          };
+
+          if (window.Razorpay) {
+            launchRazorpayModal();
+          } else {
+            const script = document.createElement('script');
+            script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+            script.async = true;
+            script.onload = launchRazorpayModal;
+            script.onerror = () => {
+              setFormError('Unable to load Razorpay payment gateway. Please check your connection.');
+              setOrderSubmitting(false);
+            };
+            document.body.appendChild(script);
+          }
         } else {
           setFormError('Order created, but payment initialization failed. Please contact support.');
+          setOrderSubmitting(false);
         }
       } else {
         setFormError(orderRes.message || 'Could not place order. Please review your details.');
+        setOrderSubmitting(false);
       }
     } catch (err) {
       setFormError(err.message || 'Error communicating with server.');
-    } finally {
       setOrderSubmitting(false);
     }
-  };
-
-  const handlePaymentSuccess = (verifiedData) => {
-    setUpiModalOpen(false);
-    clearCart();
-    const finalOrderId = verifiedData?.order_id || verifiedData?.id || createdOrder?.id;
-    onNavigate('order_success', { orderId: finalOrderId });
   };
 
   if (cartItems.length === 0) {
@@ -691,66 +747,43 @@ export default function Checkout({ onNavigate }) {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {/* Dynamic UPI QR */}
+                  {/* Razorpay Secure Checkout */}
                   <label style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: '14px',
-                    padding: '16px 20px',
+                    padding: '18px 20px',
                     borderRadius: 'var(--radius-md)',
-                    border: paymentMethod === 'UPI_QR' ? '2px solid var(--peanut-gold-600)' : '1px solid var(--border-medium)',
-                    backgroundColor: paymentMethod === 'UPI_QR' ? 'var(--peanut-gold-50)' : '#FFFFFF',
+                    border: paymentMethod === 'RAZORPAY' ? '2px solid var(--peanut-gold-600)' : '1px solid var(--border-medium)',
+                    backgroundColor: paymentMethod === 'RAZORPAY' ? 'var(--peanut-gold-50)' : '#FFFFFF',
                     cursor: 'pointer',
                     transition: 'var(--transition)'
                   }}>
                     <input
                       type="radio"
                       name="payment_method"
-                      value="UPI_QR"
-                      checked={paymentMethod === 'UPI_QR'}
-                      onChange={() => setPaymentMethod('UPI_QR')}
+                      value="RAZORPAY"
+                      checked={paymentMethod === 'RAZORPAY'}
+                      onChange={() => setPaymentMethod('RAZORPAY')}
                       style={{ width: '18px', height: '18px' }}
                     />
                     <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <QrCode size={20} style={{ color: 'var(--peanut-gold-700)' }} />
-                        <strong style={{ color: 'var(--cacao-950)' }}>Dynamic UPI QR (Recommended)</strong>
-                        <span className="badge badge-gold" style={{ fontSize: '0.68rem' }}>Fast & Zero Fee</span>
-                      </div>
-                      <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>
-                        Instant dynamic order QR code for Google Pay, PhonePe, Paytm, or BHIM.
-                      </span>
-                    </div>
-                  </label>
-
-                  {/* Cards & Net Banking */}
-                  <label style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '14px',
-                    padding: '16px 20px',
-                    borderRadius: 'var(--radius-md)',
-                    border: paymentMethod === 'CARD' ? '2px solid var(--peanut-gold-600)' : '1px solid var(--border-medium)',
-                    backgroundColor: paymentMethod === 'CARD' ? 'var(--peanut-gold-50)' : '#FFFFFF',
-                    cursor: 'pointer',
-                    transition: 'var(--transition)'
-                  }}>
-                    <input
-                      type="radio"
-                      name="payment_method"
-                      value="CARD"
-                      checked={paymentMethod === 'CARD'}
-                      onChange={() => setPaymentMethod('CARD')}
-                      style={{ width: '18px', height: '18px' }}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                         <CreditCard size={20} style={{ color: 'var(--peanut-gold-700)' }} />
-                        <strong style={{ color: 'var(--cacao-950)' }}>Debit / Credit Cards & Net Banking</strong>
+                        <strong style={{ color: 'var(--cacao-950)' }}>Razorpay Secure Payment (UPI, Cards, NetBanking, Wallets)</strong>
+                        <span className="badge badge-gold" style={{ fontSize: '0.68rem' }}>Instant & 100% Safe</span>
                       </div>
-                      <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>
-                        All major Indian banks, Visa, Mastercard, and RuPay supported.
+                      <span style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', display: 'block', marginTop: '4px' }}>
+                        Pay using Google Pay, PhonePe, Paytm, CRED, BHIM UPI, Visa, Mastercard, RuPay, or Net Banking.
                       </span>
+                      <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.72rem', padding: '3px 8px', background: '#F1F5F9', borderRadius: '4px', color: '#334155', fontWeight: '700' }}>⚡ UPI / QR</span>
+                        <span style={{ fontSize: '0.72rem', padding: '3px 8px', background: '#F1F5F9', borderRadius: '4px', color: '#334155', fontWeight: '700' }}>Google Pay</span>
+                        <span style={{ fontSize: '0.72rem', padding: '3px 8px', background: '#F1F5F9', borderRadius: '4px', color: '#334155', fontWeight: '700' }}>PhonePe</span>
+                        <span style={{ fontSize: '0.72rem', padding: '3px 8px', background: '#F1F5F9', borderRadius: '4px', color: '#334155', fontWeight: '700' }}>Paytm</span>
+                        <span style={{ fontSize: '0.72rem', padding: '3px 8px', background: '#F1F5F9', borderRadius: '4px', color: '#334155', fontWeight: '700' }}>Credit / Debit Cards</span>
+                        <span style={{ fontSize: '0.72rem', padding: '3px 8px', background: '#F1F5F9', borderRadius: '4px', color: '#334155', fontWeight: '700' }}>Net Banking</span>
+                      </div>
                     </div>
                   </label>
 
@@ -956,28 +989,22 @@ export default function Checkout({ onNavigate }) {
                   className="btn btn-gold btn-lg"
                   style={{ width: '100%', padding: '16px' }}
                 >
-                  {orderSubmitting ? 'Placing Order...' : paymentMethod === 'COD' ? 'Confirm Cash on Delivery Order' : 'Proceed to UPI / Card Payment'}
+                  {orderSubmitting 
+                    ? 'Processing...' 
+                    : paymentMethod === 'COD' 
+                      ? 'Confirm Cash on Delivery Order' 
+                      : `Pay ₹${finalTotalDisplay.toFixed(2)} with Razorpay`}
                 </button>
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '14px' }}>
                   <ShieldCheck size={16} style={{ color: 'var(--success-color)' }} />
-                  <span>Authorized Merchant Checkout • Server Signature Enforced</span>
+                  <span>Razorpay PCI-DSS Level 1 Encrypted • 256-Bit SSL Secured</span>
                 </div>
               </div>
             </div>
 
           </div>
         </form>
-
-        {/* Dynamic UPI QR Modal for Online Payments */}
-        {upiModalOpen && createdOrder && paymentData && (
-          <UPIQRModal
-            order={createdOrder}
-            paymentData={paymentData}
-            onClose={() => setUpiModalOpen(false)}
-            onSuccess={handlePaymentSuccess}
-          />
-        )}
 
       </div>
     </div>
