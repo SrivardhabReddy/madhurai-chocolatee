@@ -75,7 +75,7 @@ export const api = {
   getOrderById: (id) => request(`/orders/${id}`),
 
   // Payments (Razorpay Standard Web Checkout)
-  createOrder: (payload) =>
+  createRazorpayOrder: (payload) =>
     request('/create-order', {
       method: 'POST',
       body: JSON.stringify(typeof payload === 'object' ? payload : { order_id: payload })

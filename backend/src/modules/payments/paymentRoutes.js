@@ -16,40 +16,32 @@ const router = Router();
  */
 export async function createOrderHandler(req, res, next) {
   try {
-    const { amount, currency = 'INR', receipt, notes = {}, order_id } = req.body;
+    const { amount, currency = 'INR', receipt, notes = {}, order_id, total_amount } = req.body;
 
     let amountInPaise = amount;
     let orderReceipt = receipt;
     let orderNotes = notes || {};
+    let orderRecord = null;
 
-    // Support storefront order_id reference
-    if (order_id && (!amount || isNaN(amount))) {
-      const order = await get('SELECT * FROM orders WHERE id = ? OR order_number = ?', [order_id, order_id]);
-      if (!order) {
-        return res.status(404).json({ success: false, message: 'Order not found.' });
+    // 1. Support storefront order_id reference
+    if (order_id) {
+      orderRecord = await get('SELECT * FROM orders WHERE id = ? OR order_number = ?', [order_id, order_id]);
+      if (orderRecord) {
+        if (orderRecord.payment_status === 'PAID') {
+          return res.status(400).json({ success: false, message: 'Order is already marked as paid.' });
+        }
+        amountInPaise = Math.round(parseFloat(orderRecord.total_amount) * 100);
+        orderReceipt = orderRecord.order_number;
+        orderNotes = { order_id: orderRecord.id, order_number: orderRecord.order_number };
       }
-      if (order.payment_status === 'PAID') {
-        return res.status(400).json({ success: false, message: 'Order is already marked as paid.' });
-      }
-
-      const paymentData = await PaymentService.createPayment({
-        order,
-        paymentMethod: req.body.payment_method || 'RAZORPAY',
-        req
-      });
-
-      return res.status(200).json({
-        success: true,
-        order_id: paymentData.razorpayOrderId,
-        id: paymentData.razorpayOrderId,
-        amount: paymentData.amount, // in paise
-        currency: paymentData.currency,
-        key_id: paymentData.keyId,
-        data: paymentData
-      });
     }
 
-    // Direct amount validation (must be at least 100 paise)
+    // 2. Support total_amount in rupees
+    if ((!amountInPaise || isNaN(amountInPaise)) && total_amount && !isNaN(total_amount)) {
+      amountInPaise = Math.round(parseFloat(total_amount) * 100);
+    }
+
+    // 3. Direct amount validation (must be at least 100 paise)
     if (!amountInPaise || isNaN(amountInPaise) || Number(amountInPaise) < 100) {
       return res.status(400).json({
         success: false,
@@ -59,10 +51,24 @@ export async function createOrderHandler(req, res, next) {
 
     const rzpOrder = await PaymentService.createRazorpayOrder({
       amount: parseInt(amountInPaise, 10),
-      currency,
+      currency: (currency || 'INR').toUpperCase(),
       receipt: orderReceipt,
       notes: orderNotes
     });
+
+    let paymentId = `pay_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    if (orderRecord) {
+      try {
+        await query(
+          `INSERT INTO payments (
+            id, order_id, gateway, gateway_order_id, amount, currency, status, payment_method
+          ) VALUES (?, ?, 'RAZORPAY', ?, ?, 'INR', 'PENDING', ?)`,
+          [paymentId, orderRecord.id, rzpOrder.order_id, (amountInPaise / 100).toFixed(2), req.body.payment_method || 'RAZORPAY']
+        );
+      } catch (pErr) {
+        console.warn('Payment record note:', pErr.message);
+      }
+    }
 
     return res.status(200).json({
       success: true,
@@ -70,7 +76,17 @@ export async function createOrderHandler(req, res, next) {
       id: rzpOrder.order_id,
       amount: rzpOrder.amount,
       currency: rzpOrder.currency,
-      key_id: config.razorpayKeyId
+      key_id: config.razorpayKeyId,
+      data: {
+        paymentId,
+        razorpayOrderId: rzpOrder.order_id,
+        order_id: rzpOrder.order_id,
+        amount: rzpOrder.amount,
+        currency: rzpOrder.currency,
+        keyId: config.razorpayKeyId,
+        key_id: config.razorpayKeyId,
+        orderNumber: orderRecord ? orderRecord.order_number : orderReceipt
+      }
     });
   } catch (err) {
     const statusCode = err.status || (err.statusCode === 401 ? 401 : 500);
