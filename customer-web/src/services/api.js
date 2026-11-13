@@ -74,16 +74,21 @@ export const api = {
   getMyOrders: () => request('/orders/my-orders'),
   getOrderById: (id) => request(`/orders/${id}`),
 
-  // Payments
-  createPayment: (orderId, paymentMethod = 'UPI_QR') =>
-    request('/payments/create', {
+  // Payments (Razorpay Standard Web Checkout)
+  createOrder: (payload) =>
+    request('/create-order', {
       method: 'POST',
-      body: JSON.stringify({ order_id: orderId, payment_method: paymentMethod })
+      body: JSON.stringify(typeof payload === 'object' ? payload : { order_id: payload })
     }),
   verifyPayment: (data) =>
-    request('/payments/verify', {
+    request('/verify-payment', {
       method: 'POST',
       body: JSON.stringify(data)
+    }),
+  createPayment: (orderId, paymentMethod = 'RAZORPAY') =>
+    request('/create-order', {
+      method: 'POST',
+      body: JSON.stringify({ order_id: orderId, payment_method: paymentMethod })
     }),
   simulatePaymentSuccess: (orderId, paymentId) =>
     request('/payments/simulate-success', {

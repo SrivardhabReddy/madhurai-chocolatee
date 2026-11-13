@@ -311,20 +311,24 @@ export default function Checkout({ onNavigate }) {
           const pData = payRes.data;
 
           const launchRazorpayModal = () => {
+            const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID || pData.key_id || pData.keyId;
+            const razorpayOrderId = pData.order_id || pData.razorpayOrderId;
+
             const options = {
-              key: pData.keyId,
+              key: razorpayKey,
               amount: pData.amount, // amount in paise
               currency: pData.currency || 'INR',
               name: 'Madhurai Chocolate',
               description: `Artisanal Box Order #${pData.orderNumber || orderInfo.orderNumber}`,
               image: '/favicon.svg',
-              order_id: pData.razorpayOrderId,
+              order_id: razorpayOrderId,
               handler: async function (response) {
                 try {
                   setOrderSubmitting(true);
                   const verifyRes = await api.verifyPayment({
-                    order_id: orderInfo.orderId,
-                    payment_id: pData.paymentId,
+                    order_id: response.razorpay_order_id,
+                    payment_id: response.razorpay_payment_id,
+                    signature: response.razorpay_signature,
                     razorpay_order_id: response.razorpay_order_id,
                     razorpay_payment_id: response.razorpay_payment_id,
                     razorpay_signature: response.razorpay_signature

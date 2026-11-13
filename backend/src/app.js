@@ -15,7 +15,7 @@ import cartRoutes from './modules/cart/cartRoutes.js';
 import orderRoutes from './modules/orders/orderRoutes.js';
 import deliveryRoutes from './modules/delivery/deliveryRoutes.js';
 import couponRoutes from './modules/coupons/couponRoutes.js';
-import paymentRoutes from './modules/payments/paymentRoutes.js';
+import paymentRoutes, { createOrderHandler, verifyPaymentHandler } from './modules/payments/paymentRoutes.js';
 import inventoryRoutes from './modules/inventory/inventoryRoutes.js';
 import adminRoutes from './modules/admin/adminRoutes.js';
 import articleRoutes from './modules/articles/articleRoutes.js';
@@ -74,6 +74,11 @@ app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/delivery', deliveryRoutes);
 app.use('/api/coupons', couponRoutes);
+
+// Razorpay Standard Web Checkout Endpoints
+app.post('/api/create-order', createOrderHandler);
+app.post('/api/verify-payment', verifyPaymentHandler);
+
 app.use('/api/payments', paymentRoutes);
 app.use('/api/admin/inventory', inventoryRoutes);
 app.use('/api/admin', adminRoutes);
