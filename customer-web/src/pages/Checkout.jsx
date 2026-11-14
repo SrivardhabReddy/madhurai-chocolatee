@@ -306,7 +306,7 @@ export default function Checkout({ onNavigate }) {
         }
 
         // For Online Payments: Launch official Razorpay Checkout SDK
-        const payRes = await api.createPayment(orderInfo.orderId, 'RAZORPAY');
+        const payRes = await api.createPayment(orderInfo.orderId, 'RAZORPAY', orderInfo.totalAmount || finalTotalDisplay);
         if (payRes.success && payRes.data) {
           const pData = payRes.data;
 

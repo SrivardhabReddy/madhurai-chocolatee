@@ -37,6 +37,13 @@ export async function runMigrations() {
     }
   }
 
+  // Ensure min_discount_amount column exists on coupons table
+  try {
+    await exec(`ALTER TABLE coupons ADD COLUMN min_discount_amount REAL DEFAULT 0`);
+  } catch (e) {
+    // Column already exists
+  }
+
   console.log('✅ Database schema verified and up to date.');
 }
 

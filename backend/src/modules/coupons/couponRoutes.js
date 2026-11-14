@@ -86,15 +86,42 @@ router.post('/validate', optionalAuth, async (req, res, next) => {
 
     // Calculate discount amount
     let discount = 0;
+    const discountVal = parseFloat(coupon.discount_value) || 0;
+    const minRange = parseFloat(coupon.min_discount_amount) || 0;
+    const maxRange = parseFloat(coupon.max_discount_amount) || 0;
+
     if (coupon.discount_type === 'PERCENTAGE') {
-      discount = (orderAmt * coupon.discount_value) / 100;
-      if (coupon.max_discount_amount && discount > coupon.max_discount_amount) {
-        discount = coupon.max_discount_amount;
+      discount = (orderAmt * discountVal) / 100;
+      if (minRange > 0 && discount < minRange) {
+        discount = minRange;
+      }
+      if (maxRange > 0 && discount > maxRange) {
+        discount = maxRange;
+      }
+    } else if (coupon.discount_type === 'RANGE') {
+      // Range discount: Min Range to Max Range discount
+      const val1 = minRange > 0 ? minRange : discountVal;
+      const val2 = maxRange > 0 ? maxRange : (discountVal > 0 ? discountVal : val1);
+      const minD = Math.min(val1, val2);
+      const maxD = Math.max(val1, val2);
+      if (minD === maxD) {
+        discount = minD;
+      } else {
+        const seed = Math.abs(Math.sin(orderAmt + (cleanCode.charCodeAt(0) || 7)));
+        discount = Math.round(minD + seed * (maxD - minD));
       }
     } else {
-      discount = coupon.discount_value;
+      // FIXED / FLAT AMOUNT DISCOUNT:
+      discount = discountVal;
+      if (minRange > 0 && discount < minRange) {
+        discount = minRange;
+      }
+      if (maxRange > 0 && discount > maxRange) {
+        discount = maxRange;
+      }
     }
     discount = Math.min(discount, orderAmt);
+    discount = Math.round(discount * 100) / 100;
 
     return res.json({
       success: true,
@@ -103,6 +130,8 @@ router.post('/validate', optionalAuth, async (req, res, next) => {
         code: coupon.code,
         discount_type: coupon.discount_type,
         discount_value: coupon.discount_value,
+        min_discount_amount: coupon.min_discount_amount,
+        max_discount_amount: coupon.max_discount_amount,
         discount_amount: discount,
         discount: discount,
         description: coupon.description
@@ -156,19 +185,21 @@ router.post('/admin/create', authenticate, requireRoles('SUPER_ADMIN', 'ADMIN'),
     }
 
     const id = `coup_${Date.now()}`;
+    const { min_discount_amount = 0 } = req.body;
     await query(
       `INSERT INTO coupons (
         id, code, description, discount_type, discount_value, min_order_amount,
-        max_discount_amount, start_date, end_date, usage_limit, per_customer_limit,
+        min_discount_amount, max_discount_amount, start_date, end_date, usage_limit, per_customer_limit,
         product_id, category_id, pincode, is_active
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         cleanCode,
         description || null,
         discount_type,
-        parseFloat(discount_value),
+        parseFloat(discount_value) || 0,
         parseFloat(min_order_amount) || 0,
+        parseFloat(min_discount_amount) || 0,
         max_discount_amount ? parseFloat(max_discount_amount) : null,
         start_date || null,
         end_date || null,
@@ -209,6 +240,7 @@ router.put('/admin/:id', authenticate, requireRoles('SUPER_ADMIN', 'ADMIN'), asy
       discount_type,
       discount_value,
       min_order_amount,
+      min_discount_amount,
       max_discount_amount,
       start_date,
       end_date,
@@ -220,15 +252,16 @@ router.put('/admin/:id', authenticate, requireRoles('SUPER_ADMIN', 'ADMIN'), asy
     await query(
       `UPDATE coupons SET
         code = ?, description = ?, discount_type = ?, discount_value = ?,
-        min_order_amount = ?, max_discount_amount = ?, start_date = ?, end_date = ?,
+        min_order_amount = ?, min_discount_amount = ?, max_discount_amount = ?, start_date = ?, end_date = ?,
         usage_limit = ?, per_customer_limit = ?, is_active = ?
        WHERE id = ?`,
       [
         code.trim().toUpperCase(),
         description || null,
         discount_type,
-        parseFloat(discount_value),
+        parseFloat(discount_value) || 0,
         parseFloat(min_order_amount) || 0,
+        parseFloat(min_discount_amount) || 0,
         max_discount_amount ? parseFloat(max_discount_amount) : null,
         start_date || null,
         end_date || null,

@@ -85,10 +85,15 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data)
     }),
-  createPayment: (orderId, paymentMethod = 'RAZORPAY') =>
+  createPayment: (orderId, paymentMethod = 'RAZORPAY', totalAmount = null) =>
     request('/create-order', {
       method: 'POST',
-      body: JSON.stringify({ order_id: orderId, payment_method: paymentMethod })
+      body: JSON.stringify({
+        order_id: orderId,
+        payment_method: paymentMethod,
+        total_amount: totalAmount,
+        amount: totalAmount ? Math.round(Number(totalAmount) * 100) : undefined
+      })
     }),
   simulatePaymentSuccess: (orderId, paymentId) =>
     request('/payments/simulate-success', {

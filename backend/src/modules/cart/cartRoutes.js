@@ -83,15 +83,41 @@ router.post('/validate', optionalAuth, async (req, res, next) => {
       if (coupon) {
         const minOrder = parseFloat(coupon.min_order_amount) || 0;
         if (subtotal >= minOrder) {
+          const discountVal = parseFloat(coupon.discount_value) || 0;
+          const minRange = parseFloat(coupon.min_discount_amount) || 0;
+          const maxRange = parseFloat(coupon.max_discount_amount) || 0;
+
           if (coupon.discount_type === 'PERCENTAGE') {
-            discountAmount = (subtotal * coupon.discount_value) / 100;
-            if (coupon.max_discount_amount && discountAmount > coupon.max_discount_amount) {
-              discountAmount = coupon.max_discount_amount;
+            discountAmount = (subtotal * discountVal) / 100;
+            if (minRange > 0 && discountAmount < minRange) {
+              discountAmount = minRange;
+            }
+            if (maxRange > 0 && discountAmount > maxRange) {
+              discountAmount = maxRange;
+            }
+          } else if (coupon.discount_type === 'RANGE') {
+            const val1 = minRange > 0 ? minRange : discountVal;
+            const val2 = maxRange > 0 ? maxRange : (discountVal > 0 ? discountVal : val1);
+            const minD = Math.min(val1, val2);
+            const maxD = Math.max(val1, val2);
+            if (minD === maxD) {
+              discountAmount = minD;
+            } else {
+              const seed = Math.abs(Math.sin(subtotal + (code.charCodeAt(0) || 7)));
+              discountAmount = Math.round(minD + seed * (maxD - minD));
             }
           } else {
-            discountAmount = coupon.discount_value;
+            // FIXED / FLAT AMOUNT
+            discountAmount = discountVal;
+            if (minRange > 0 && discountAmount < minRange) {
+              discountAmount = minRange;
+            }
+            if (maxRange > 0 && discountAmount > maxRange) {
+              discountAmount = maxRange;
+            }
           }
           discountAmount = Math.min(discountAmount, subtotal);
+          discountAmount = Math.round(discountAmount * 100) / 100;
           appliedCoupon = {
             code: coupon.code,
             description: coupon.description,
