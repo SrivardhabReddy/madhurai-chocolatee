@@ -24,14 +24,14 @@ export const config = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   
   // Payment Gateway (Razorpay)
-  paymentGateway: process.env.PAYMENT_GATEWAY || 'RAZORPAY',
-  razorpayKeyId: process.env.RAZORPAY_KEY_ID || process.env.PAYMENT_GATEWAY_KEY || 'rzp_test_madhurai_demo_key',
-  razorpayKeySecret: process.env.RAZORPAY_KEY_SECRET || process.env.PAYMENT_GATEWAY_SECRET || 'rzp_test_madhurai_secret_123',
-  razorpayWebhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || process.env.PAYMENT_WEBHOOK_SECRET || 'whsec_madhurai_webhook_secret_999',
-  paymentGatewayKey: process.env.RAZORPAY_KEY_ID || process.env.PAYMENT_GATEWAY_KEY || 'rzp_test_madhurai_demo_key',
-  paymentGatewaySecret: process.env.RAZORPAY_KEY_SECRET || process.env.PAYMENT_GATEWAY_SECRET || 'rzp_test_madhurai_secret_123',
-  paymentWebhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || process.env.PAYMENT_WEBHOOK_SECRET || 'whsec_madhurai_webhook_secret_999',
-  upiVpa: process.env.UPI_VPA || '9676823113-2@ybl',
+  paymentGateway: (process.env.PAYMENT_GATEWAY || 'RAZORPAY').trim(),
+  razorpayKeyId: (process.env.RAZORPAY_KEY_ID || process.env.PAYMENT_GATEWAY_KEY || 'rzp_test_madhurai_demo_key').trim(),
+  razorpayKeySecret: (process.env.RAZORPAY_KEY_SECRET || process.env.PAYMENT_GATEWAY_SECRET || 'rzp_test_madhurai_secret_123').trim(),
+  razorpayWebhookSecret: (process.env.RAZORPAY_WEBHOOK_SECRET || process.env.PAYMENT_WEBHOOK_SECRET || 'whsec_madhurai_webhook_secret_999').trim(),
+  paymentGatewayKey: (process.env.RAZORPAY_KEY_ID || process.env.PAYMENT_GATEWAY_KEY || 'rzp_test_madhurai_demo_key').trim(),
+  paymentGatewaySecret: (process.env.RAZORPAY_KEY_SECRET || process.env.PAYMENT_GATEWAY_SECRET || 'rzp_test_madhurai_secret_123').trim(),
+  paymentWebhookSecret: (process.env.RAZORPAY_WEBHOOK_SECRET || process.env.PAYMENT_WEBHOOK_SECRET || 'whsec_madhurai_webhook_secret_999').trim(),
+  upiVpa: (process.env.UPI_VPA || '9676823113-2@ybl').trim(),
   
   // Email / Notifications
   emailHost: process.env.EMAIL_HOST || 'smtp.mailtrap.io',

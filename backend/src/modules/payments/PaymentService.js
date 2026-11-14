@@ -8,12 +8,14 @@ import { recordAuditLog } from '../../middleware/auditLogger.js';
 let razorpayClient = null;
 
 function getRazorpayClient() {
-  const key_id = config.razorpayKeyId || config.paymentGatewayKey;
-  const key_secret = config.razorpayKeySecret || config.paymentGatewaySecret;
+  const key_id = (process.env.RAZORPAY_KEY_ID || config.razorpayKeyId || config.paymentGatewayKey || '').trim();
+  const key_secret = (process.env.RAZORPAY_KEY_SECRET || config.razorpayKeySecret || config.paymentGatewaySecret || '').trim();
 
   if (key_id && key_secret) {
-    if (!razorpayClient) {
+    if (!razorpayClient || razorpayClient.key_id !== key_id || razorpayClient.key_secret !== key_secret) {
       razorpayClient = new Razorpay({ key_id, key_secret });
+      razorpayClient.key_id = key_id;
+      razorpayClient.key_secret = key_secret;
     }
     return razorpayClient;
   }
@@ -100,7 +102,7 @@ export class PaymentService {
    * Algorithm: HMAC-SHA256(order_id + "|" + payment_id, KEY_SECRET)
    */
   static verifyRazorpaySignature({ orderId, paymentId, signature }) {
-    const key_secret = config.razorpayKeySecret || config.paymentGatewaySecret;
+    const key_secret = (process.env.RAZORPAY_KEY_SECRET || config.razorpayKeySecret || config.paymentGatewaySecret || '').trim();
     if (!key_secret) {
       const err = new Error('Razorpay Key Secret is missing.');
       err.status = 500;
