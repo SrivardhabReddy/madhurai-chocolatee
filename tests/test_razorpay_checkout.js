@@ -16,8 +16,8 @@ async function runTests() {
 
   try {
     const keySecret = process.env.RAZORPAY_KEY_SECRET || config.razorpayKeySecret;
-    assert.strictEqual(process.env.RAZORPAY_KEY_ID, 'rzp_test_TzgbxfjfSbjUZT', 'RAZORPAY_KEY_ID must match credential');
-    assert.strictEqual(keySecret, '1BejLzi7vkYk0Tf6hTsh2uS2', 'RAZORPAY_KEY_SECRET must match credential');
+    assert.strictEqual(process.env.RAZORPAY_KEY_ID, 'rzp_test_U01prJBZMr3oLr', 'RAZORPAY_KEY_ID must match credential');
+    assert.strictEqual(keySecret, 'y5Msz9RBOXMkTssPvOkQbMwP', 'RAZORPAY_KEY_SECRET must match credential');
 
     // -------------------------------------------------------------
     // TEST 1: POST /api/create-order Validation (< 100 paise)
