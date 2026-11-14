@@ -56,15 +56,23 @@ export default function Dashboard({ onNavigate }) {
   const fetchDashboardData = async (isManual = false) => {
     if (isManual) setRefreshing(true);
     try {
-      const [dashRes, anaRes] = await Promise.all([
+      const [dashResult, anaResult] = await Promise.allSettled([
         adminApi.getDashboard(),
         adminApi.getAnalytics('7d')
       ]);
-      if (dashRes.success) {
-        setMetrics(dashRes.data);
+
+      if (dashResult.status === 'fulfilled' && dashResult.value?.success) {
+        setMetrics(dashResult.value.data);
         setLastSyncTime(new Date());
+      } else if (dashResult.status === 'rejected') {
+        console.error('Failed to load dashboard metrics:', dashResult.reason);
       }
-      if (anaRes.success) setAnalytics(anaRes.data);
+
+      if (anaResult.status === 'fulfilled' && anaResult.value?.success) {
+        setAnalytics(anaResult.value.data);
+      } else if (anaResult.status === 'rejected') {
+        console.error('Failed to load analytics trends:', anaResult.reason);
+      }
     } catch (err) {
       console.error('Failed to load admin dashboard:', err);
     } finally {

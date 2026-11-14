@@ -157,11 +157,11 @@ router.get('/analytics', authenticate, requireRoles('SUPER_ADMIN', 'ADMIN'), asy
 
     // Daily Sales & Revenue (Only count successfully completed payments in revenue)
     const salesTrends = await all(
-      `SELECT SUBSTR(created_at, 1, 10) as date,
+      `SELECT SUBSTR(CAST(created_at AS TEXT), 1, 10) as date,
               COUNT(id) as orders_count,
               COALESCE(SUM(CASE WHEN payment_status = 'PAID' THEN total_amount ELSE 0 END), 0) as revenue
        FROM orders
-       GROUP BY SUBSTR(created_at, 1, 10)
+       GROUP BY SUBSTR(CAST(created_at AS TEXT), 1, 10)
        ORDER BY date DESC
        LIMIT ?`,
       [days]
@@ -274,7 +274,7 @@ router.put('/settings', authenticate, requireRoles('SUPER_ADMIN'), async (req, r
         ]);
       } else {
         await query(
-          'INSERT INTO business_settings (id, setting_key, setting_value, group_name) VALUES (?, ?, ?, "GENERAL")',
+          'INSERT INTO business_settings (id, setting_key, setting_value, group_name) VALUES (?, ?, ?, \'GENERAL\')',
           [`set_${key}`, key, String(value)]
         );
       }
