@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, Trash2, Plus, Minus, ArrowRight, Tag, Truck, Check, AlertCircle, X } from 'lucide-react';
+import { ShoppingBag, Trash2, Plus, Minus, ArrowRight, Tag, Truck, Check, AlertCircle, X, Lock } from 'lucide-react';
 import { useCart } from '../context/CartContext.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
 import { api } from '../services/api.js';
 
 export default function Cart({ onNavigate }) {
+  const { user } = useAuth();
   const { 
     cartItems, 
     updateQuantity, 
@@ -481,11 +483,17 @@ export default function Cart({ onNavigate }) {
               className="btn btn-gold btn-lg"
               style={{ width: '100%', padding: '16px' }}
             >
-              <span>Proceed to Checkout</span>
+              <span>{user ? 'Proceed to Checkout' : 'Proceed to Checkout & Sign In'}</span>
               <ArrowRight size={18} />
             </button>
 
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center', display: 'block', marginTop: '12px' }}>
+            {!user && (
+              <span style={{ fontSize: '0.78rem', color: '#B45309', backgroundColor: '#FFFBEB', padding: '6px 10px', borderRadius: '4px', textAlign: 'center', display: 'block', marginTop: '10px', border: '1px solid #FDE68A' }}>
+                🔒 Sign-in or registration is required at checkout to complete your order.
+              </span>
+            )}
+
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center', display: 'block', marginTop: '10px' }}>
               🔒 100% Safe & Encrypted Checkout • Server Re-verified
             </span>
 

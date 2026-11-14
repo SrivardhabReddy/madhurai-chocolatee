@@ -9,15 +9,31 @@ import {
   AlertCircle, 
   ArrowLeft,
   Truck,
-  Tag
+  Tag,
+  User,
+  Lock,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { useCart } from '../context/CartContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { api } from '../services/api.js';
+import DeliveryLocationPicker from '../components/DeliveryLocationPicker.jsx';
 
 export default function Checkout({ onNavigate }) {
   const { cartItems, clearCart, deliveryPincode, setDeliveryPincode, appliedCoupon, setAppliedCoupon, removeCoupon } = useCart();
-  const { user } = useAuth();
+  const { user, login, register } = useAuth();
+
+  // Quick Inline Checkout Auth State
+  const [authTab, setAuthTab] = useState('LOGIN'); // 'LOGIN' | 'REGISTER'
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authName, setAuthName] = useState('');
+  const [authPhone, setAuthPhone] = useState('');
+  const [showAuthPassword, setShowAuthPassword] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [authSuccess, setAuthSuccess] = useState('');
 
   // Customer Form State
   const [formData, setFormData] = useState({
@@ -65,6 +81,75 @@ export default function Checkout({ onNavigate }) {
       setCouponSuccess('');
     }
   }, [appliedCoupon]);
+
+  // Sync customer contact details when user signs in or registers
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        customer_name: user.full_name || prev.customer_name,
+        customer_email: user.email || prev.customer_email,
+        customer_phone: user.phone || prev.customer_phone
+      }));
+    }
+  }, [user]);
+
+  const handleCheckoutLogin = async (e) => {
+    if (e) e.preventDefault();
+    setAuthError('');
+    setAuthSuccess('');
+    if (!authEmail.trim() || !authPassword) {
+      setAuthError('Please enter both email and password.');
+      return;
+    }
+    setAuthLoading(true);
+    try {
+      const res = await login(authEmail.trim().toLowerCase(), authPassword);
+      if (res && res.success) {
+        setAuthSuccess('✓ Signed in successfully!');
+        setFormError('');
+      } else {
+        setAuthError(res?.message || 'Invalid email or password.');
+      }
+    } catch (err) {
+      setAuthError(err?.data?.message || err?.message || 'Login failed. Please verify your credentials.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleCheckoutRegister = async (e) => {
+    if (e) e.preventDefault();
+    setAuthError('');
+    setAuthSuccess('');
+    if (!authName.trim() || !authPhone.trim() || !authEmail.trim() || !authPassword) {
+      setAuthError('Please fill in your name, mobile number, email, and password.');
+      return;
+    }
+    if (authPassword.length < 6) {
+      setAuthError('Password must be at least 6 characters long.');
+      return;
+    }
+    setAuthLoading(true);
+    try {
+      const res = await register({
+        full_name: authName.trim(),
+        phone: authPhone.trim(),
+        email: authEmail.trim().toLowerCase(),
+        password: authPassword
+      });
+      if (res && res.success) {
+        setAuthSuccess('✓ Account registered successfully!');
+        setFormError('');
+      } else {
+        setAuthError(res?.message || 'Registration failed.');
+      }
+    } catch (err) {
+      setAuthError(err?.data?.message || err?.message || 'Registration failed. This email may already be in use.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
 
   // Load saved addresses for authenticated users
   useEffect(() => {
@@ -254,6 +339,16 @@ export default function Checkout({ onNavigate }) {
     e.preventDefault();
     setFormError('');
 
+    // Customer must be signed in to process order and payment
+    if (!user) {
+      setFormError('🔒 Please sign in or create an account at Step 1 to process your order and payment.');
+      const contactSection = document.getElementById('step-contact-auth');
+      if (contactSection) {
+        contactSection.scrollIntoView({ behavior: 'smooth' });
+      }
+      return;
+    }
+
     // Form validation
     if (!formData.customer_name || !formData.customer_email || !formData.customer_phone) {
       setFormError('Please enter your full name, email, and mobile number.');
@@ -433,73 +528,302 @@ export default function Checkout({ onNavigate }) {
             {/* Left Column: Customer Info & Address */}
             <div>
               
-              {/* Step 1: Customer Details */}
-              <div style={{ backgroundColor: '#FFFFFF', padding: '28px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-medium)', marginBottom: '24px', boxShadow: 'var(--shadow-sm)' }}>
-                <h3 style={{ fontSize: '1.25rem', color: 'var(--cacao-950)', marginBottom: '20px' }}>
-                  1. Contact Information
-                </h3>
+              {/* Step 1: Customer Account & Sign In Requirement */}
+              <div id="step-contact-auth" style={{ backgroundColor: '#FFFFFF', padding: '28px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-medium)', marginBottom: '24px', boxShadow: 'var(--shadow-sm)' }}>
+                {!user ? (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
+                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#B45309', flexShrink: 0 }}>
+                        <Lock size={20} />
+                      </div>
+                      <div>
+                        <h3 style={{ fontSize: '1.25rem', color: 'var(--cacao-950)', margin: '0 0 2px 0' }}>
+                          1. Sign In to Complete Your Order
+                        </h3>
+                        <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+                          Please sign in or register to complete checkout, save delivery address, and proceed to payment
+                        </span>
+                      </div>
+                    </div>
 
-                <div className="form-group">
-                  <label className="form-label" htmlFor="customer_name">Full Name *</label>
-                  <input
-                    type="text"
-                    id="customer_name"
-                    name="customer_name"
-                    autoComplete="name"
-                    required
-                    value={formData.customer_name}
-                    onChange={handleInputChange}
-                    placeholder="Enter full name"
-                    className="form-input"
-                  />
-                </div>
+                    {/* Tab Switcher */}
+                    <div style={{ display: 'flex', gap: '8px', margin: '20px 0 16px 0', borderBottom: '1.5px solid var(--border-medium)', paddingBottom: '12px' }}>
+                      <button
+                        type="button"
+                        onClick={() => { setAuthTab('LOGIN'); setAuthError(''); setAuthSuccess(''); }}
+                        style={{
+                          padding: '8px 18px',
+                          borderRadius: 'var(--radius-sm)',
+                          fontSize: '0.86rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          border: 'none',
+                          backgroundColor: authTab === 'LOGIN' ? 'var(--cacao-950)' : '#F1F5F9',
+                          color: authTab === 'LOGIN' ? '#FFFFFF' : 'var(--text-secondary)',
+                          transition: 'var(--transition)'
+                        }}
+                      >
+                        Sign In (Existing Customer)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setAuthTab('REGISTER'); setAuthError(''); setAuthSuccess(''); }}
+                        style={{
+                          padding: '8px 18px',
+                          borderRadius: 'var(--radius-sm)',
+                          fontSize: '0.86rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          border: 'none',
+                          backgroundColor: authTab === 'REGISTER' ? 'var(--cacao-950)' : '#F1F5F9',
+                          color: authTab === 'REGISTER' ? '#FFFFFF' : 'var(--text-secondary)',
+                          transition: 'var(--transition)'
+                        }}
+                      >
+                        Create New Account
+                      </button>
+                    </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="customer_phone">Mobile Number *</label>
-                    <input
-                      type="tel"
-                      id="customer_phone"
-                      name="customer_phone"
-                      autoComplete="tel"
-                      inputMode="numeric"
-                      required
-                      value={formData.customer_phone}
-                      onChange={handleInputChange}
-                      placeholder="10-digit mobile number"
-                      className="form-input"
-                    />
+                    {authError && (
+                      <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-sm)', backgroundColor: '#FEE2E2', color: 'var(--danger-color)', fontSize: '0.84rem', fontWeight: '600', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <AlertCircle size={16} />
+                        <span>{authError}</span>
+                      </div>
+                    )}
+
+                    {authSuccess && (
+                      <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-sm)', backgroundColor: '#DCFCE7', color: '#15803D', fontSize: '0.84rem', fontWeight: '600', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <CheckCircle size={16} />
+                        <span>{authSuccess}</span>
+                      </div>
+                    )}
+
+                    {authTab === 'LOGIN' ? (
+                      <div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginBottom: '14px' }}>
+                          <div>
+                            <label className="form-label" style={{ fontSize: '0.82rem' }}>Email Address *</label>
+                            <input
+                              type="email"
+                              value={authEmail}
+                              onChange={(e) => setAuthEmail(e.target.value)}
+                              placeholder="Enter your email"
+                              className="form-input"
+                            />
+                          </div>
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <label className="form-label" style={{ fontSize: '0.82rem', marginBottom: '4px' }}>Password *</label>
+                              <button
+                                type="button"
+                                onClick={() => onNavigate('forgot_password')}
+                                style={{ fontSize: '0.74rem', color: 'var(--peanut-gold-700)', fontWeight: '600', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                              >
+                                Forgot?
+                              </button>
+                            </div>
+                            <div style={{ position: 'relative' }}>
+                              <input
+                                type={showAuthPassword ? 'text' : 'password'}
+                                value={authPassword}
+                                onChange={(e) => setAuthPassword(e.target.value)}
+                                placeholder="••••••••"
+                                className="form-input"
+                                style={{ paddingRight: '40px' }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowAuthPassword(!showAuthPassword)}
+                                style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                              >
+                                {showAuthPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleCheckoutLogin}
+                          disabled={authLoading}
+                          className="btn btn-primary"
+                          style={{ width: '100%', padding: '12px', fontWeight: '700' }}
+                        >
+                          {authLoading ? 'Signing In...' : 'Sign In to Proceed with Checkout'}
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginBottom: '12px' }}>
+                          <div>
+                            <label className="form-label" style={{ fontSize: '0.82rem' }}>Full Name *</label>
+                            <input
+                              type="text"
+                              value={authName}
+                              onChange={(e) => setAuthName(e.target.value)}
+                              placeholder="e.g. Sri Vardhan"
+                              className="form-input"
+                            />
+                          </div>
+                          <div>
+                            <label className="form-label" style={{ fontSize: '0.82rem' }}>Mobile Number *</label>
+                            <input
+                              type="tel"
+                              maxLength={10}
+                              value={authPhone}
+                              onChange={(e) => setAuthPhone(e.target.value)}
+                              placeholder="10-digit mobile number"
+                              className="form-input"
+                            />
+                          </div>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginBottom: '14px' }}>
+                          <div>
+                            <label className="form-label" style={{ fontSize: '0.82rem' }}>Email Address *</label>
+                            <input
+                              type="email"
+                              value={authEmail}
+                              onChange={(e) => setAuthEmail(e.target.value)}
+                              placeholder="For order tracking & receipt"
+                              className="form-input"
+                            />
+                          </div>
+                          <div>
+                            <label className="form-label" style={{ fontSize: '0.82rem' }}>Create Password *</label>
+                            <div style={{ position: 'relative' }}>
+                              <input
+                                type={showAuthPassword ? 'text' : 'password'}
+                                value={authPassword}
+                                onChange={(e) => setAuthPassword(e.target.value)}
+                                placeholder="Min 6 characters"
+                                className="form-input"
+                                style={{ paddingRight: '40px' }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowAuthPassword(!showAuthPassword)}
+                                style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                              >
+                                {showAuthPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleCheckoutRegister}
+                          disabled={authLoading}
+                          className="btn btn-primary"
+                          style={{ width: '100%', padding: '12px', fontWeight: '700' }}
+                        >
+                          {authLoading ? 'Creating Account...' : 'Register Account & Continue'}
+                        </button>
+                      </div>
+                    )}
                   </div>
+                ) : (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#DCFCE7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#15803D' }}>
+                          <CheckCircle size={18} />
+                        </div>
+                        <div>
+                          <h3 style={{ fontSize: '1.25rem', color: 'var(--cacao-950)', margin: 0 }}>
+                            1. Contact Information
+                          </h3>
+                          <span style={{ fontSize: '0.8rem', color: '#166534', fontWeight: '600' }}>
+                            ✓ Signed in as {user.full_name || 'Customer'} ({user.email})
+                          </span>
+                        </div>
+                      </div>
+                    </div>
 
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="customer_email">Email Address *</label>
-                    <input
-                      type="email"
-                      id="customer_email"
-                      name="customer_email"
-                      autoComplete="email"
-                      required
-                      value={formData.customer_email}
-                      onChange={handleInputChange}
-                      placeholder="Order confirmation email"
-                      className="form-input"
-                    />
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="customer_name">Full Name *</label>
+                      <input
+                        type="text"
+                        id="customer_name"
+                        name="customer_name"
+                        autoComplete="name"
+                        required
+                        value={formData.customer_name}
+                        onChange={handleInputChange}
+                        placeholder="Enter full name"
+                        className="form-input"
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      <div className="form-group">
+                        <label className="form-label" htmlFor="customer_phone">Mobile Number *</label>
+                        <input
+                          type="tel"
+                          id="customer_phone"
+                          name="customer_phone"
+                          autoComplete="tel"
+                          inputMode="numeric"
+                          required
+                          value={formData.customer_phone}
+                          onChange={handleInputChange}
+                          placeholder="10-digit mobile number"
+                          className="form-input"
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label" htmlFor="customer_email">Email Address *</label>
+                        <input
+                          type="email"
+                          id="customer_email"
+                          name="customer_email"
+                          autoComplete="email"
+                          required
+                          value={formData.customer_email}
+                          onChange={handleInputChange}
+                          placeholder="Order confirmation email"
+                          className="form-input"
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
-              {/* Step 2: Shipping Address */}
+              {/* Step 2: Shipping Address & Interactive GPS Location Mapping */}
               <div style={{ backgroundColor: '#FFFFFF', padding: '28px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-medium)', marginBottom: '24px', boxShadow: 'var(--shadow-sm)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                  <h3 style={{ fontSize: '1.25rem', color: 'var(--cacao-950)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+                  <h3 style={{ fontSize: '1.25rem', color: 'var(--cacao-950)', margin: 0 }}>
                     2. Delivery Address
                   </h3>
                   {user && (
                     <span style={{ fontSize: '0.8rem', color: 'var(--peanut-gold-700)', fontWeight: '600' }}>
-                      Logged In as {user.full_name}
+                      Logged in as {user.full_name}
                     </span>
                   )}
                 </div>
+
+                {/* Live GPS Detection and Manual Pin on Interactive Map */}
+                <DeliveryLocationPicker
+                  currentPincode={formData.pincode}
+                  initialCity={formData.city}
+                  onLocationSelect={(loc) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      pincode: loc.pincode || prev.pincode,
+                      city: loc.city || prev.city,
+                      district: loc.district || prev.district || loc.city,
+                      state: loc.state || prev.state,
+                      area: loc.area ? `${loc.area}` : prev.area,
+                      street: loc.street ? `${loc.street}` : prev.street,
+                      house_building: loc.house_building || prev.house_building
+                    }));
+                    if (loc.pincode) {
+                      setDeliveryPincode(loc.pincode);
+                    }
+                  }}
+                />
 
                 {/* Saved Address Selector for Logged in Users */}
                 {savedAddresses.length > 0 && (
@@ -986,18 +1310,39 @@ export default function Checkout({ onNavigate }) {
                   </div>
                 )}
 
+                {!user && (
+                  <div style={{
+                    padding: '12px 14px',
+                    backgroundColor: '#FFFBEB',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid #FDE68A',
+                    color: '#92400E',
+                    fontSize: '0.84rem',
+                    fontWeight: '600',
+                    marginBottom: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <Lock size={16} color="#D97706" />
+                    <span>Please sign in or create an account at Step 1 to process your order and payment.</span>
+                  </div>
+                )}
+
                 {/* Submit Button */}
                 <button
                   type="submit"
-                  disabled={orderSubmitting || checkingDelivery || !serviceability?.serviceable}
+                  disabled={orderSubmitting || (user && (checkingDelivery || !serviceability?.serviceable))}
                   className="btn btn-gold btn-lg"
                   style={{ width: '100%', padding: '16px' }}
                 >
                   {orderSubmitting 
                     ? 'Processing...' 
-                    : paymentMethod === 'COD' 
-                      ? 'Confirm Cash on Delivery Order' 
-                      : `Pay ₹${finalTotalDisplay.toFixed(2)} with Razorpay`}
+                    : !user
+                      ? '🔒 Sign In to Complete Order & Payment'
+                      : paymentMethod === 'COD' 
+                        ? 'Confirm Cash on Delivery Order' 
+                        : `Pay ₹${finalTotalDisplay.toFixed(2)} with Razorpay`}
                 </button>
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '14px' }}>
