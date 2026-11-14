@@ -83,12 +83,29 @@ router.get('/dashboard', authenticate, requireRoles('SUPER_ADMIN', 'ADMIN', 'ORD
       `SELECT COUNT(*) as refund_count, COALESCE(SUM(amount), 0) as total_refunded FROM refunds WHERE status = 'REFUNDED'`
     );
 
-    // Recent 10 Orders with dispatch info
+    // Failed payments & orders count
+    const failedPaymentsRow = await get(
+      `SELECT COUNT(*) as failed_count, COALESCE(SUM(amount), 0) as failed_amount FROM payments WHERE status = 'FAILED'`
+    );
+    const failedOrdersRow = await get(
+      `SELECT COUNT(*) as failed_orders_count FROM orders WHERE payment_status = 'FAILED'`
+    );
+
+    // Recent 25 Orders with full dispatch & address info
     const recentOrders = await all(
       `SELECT id, order_number, customer_name, customer_phone, customer_email, delivery_address, pincode,
               total_amount, payment_status, payment_method, payment_reference, order_status,
               courier_name, tracking_number, tracking_url, dispatch_date, dispatch_notes, created_at
-       FROM orders ORDER BY created_at DESC LIMIT 10`
+       FROM orders ORDER BY created_at DESC LIMIT 25`
+    );
+
+    // Recent 15 Payments (Live payment ledger including SUCCESS, PENDING, FAILED)
+    const recentPayments = await all(
+      `SELECT p.id, p.order_id, p.gateway, p.gateway_payment_id, p.gateway_order_id, p.amount, p.currency, p.status, p.payment_method, p.created_at,
+              o.order_number, o.customer_name, o.customer_phone
+       FROM payments p
+       LEFT JOIN orders o ON p.order_id = o.id
+       ORDER BY p.created_at DESC LIMIT 15`
     );
 
     return res.json({
@@ -113,11 +130,15 @@ router.get('/dashboard', authenticate, requireRoles('SUPER_ADMIN', 'ADMIN', 'ORD
         inTransitOrders: parseInt(totalOrderStats?.in_transit_orders || 0, 10),
         deliveredOrders: parseInt(totalOrderStats?.delivered_orders || 0, 10),
         cancelledOrders: parseInt(totalOrderStats?.cancelled_orders || 0, 10),
+        failedPaymentsCount: parseInt(failedPaymentsRow?.failed_count || 0, 10),
+        failedPaymentsAmount: parseFloat(failedPaymentsRow?.failed_amount || 0),
+        failedOrdersCount: parseInt(failedOrdersRow?.failed_orders_count || 0, 10),
         productsSold: parseInt(productsSoldRow?.products_sold || 0, 10),
         lowStock: parseInt(lowStockRow?.low_stock_count || 0, 10),
         refundsCount: parseInt(refundStats?.refund_count || 0, 10),
         totalRefunded: parseFloat(refundStats?.total_refunded || 0),
-        recentOrders
+        recentOrders,
+        recentPayments: recentPayments || []
       }
     });
   } catch (err) {

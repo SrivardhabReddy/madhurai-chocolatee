@@ -458,14 +458,14 @@ router.patch('/admin/:id/status', authenticate, requireRoles('SUPER_ADMIN', 'ADM
       return res.status(400).json({ success: false, message: 'Invalid order status transition.' });
     }
 
-    const order = await get('SELECT * FROM orders WHERE id = ?', [id]);
+    const order = await get('SELECT * FROM orders WHERE id = ? OR order_number = ?', [id, id]);
     if (!order) return res.status(404).json({ success: false, message: 'Order not found.' });
 
-    await query('UPDATE orders SET order_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [order_status, id]);
+    await query('UPDATE orders SET order_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [order_status, order.id]);
 
     // If cancelled, restock inventory automatically
     if (order_status === 'CANCELLED' && order.order_status !== 'CANCELLED') {
-      const items = await all('SELECT * FROM order_items WHERE order_id = ?', [id]);
+      const items = await all('SELECT * FROM order_items WHERE order_id = ?', [order.id]);
       for (const item of items) {
         await query('UPDATE inventory SET current_stock = current_stock + ? WHERE product_id = ?', [
           item.quantity,
@@ -502,7 +502,7 @@ router.patch('/admin/:id/status', authenticate, requireRoles('SUPER_ADMIN', 'ADM
 router.post('/admin/:id/cod-collected', authenticate, requireRoles('SUPER_ADMIN', 'ADMIN', 'ORDER_MANAGER'), async (req, res, next) => {
   try {
     const { id } = req.params;
-    const order = await get('SELECT * FROM orders WHERE id = ?', [id]);
+    const order = await get('SELECT * FROM orders WHERE id = ? OR order_number = ?', [id, id]);
     if (!order) return res.status(404).json({ success: false, message: 'Order not found.' });
 
     if (order.payment_method !== 'COD') {
@@ -568,7 +568,7 @@ router.patch('/admin/:id/dispatch', authenticate, requireRoles('SUPER_ADMIN', 'A
       dispatch_notes
     } = req.body;
 
-    const order = await get('SELECT * FROM orders WHERE id = ?', [id]);
+    const order = await get('SELECT * FROM orders WHERE id = ? OR order_number = ?', [id, id]);
     if (!order) return res.status(404).json({ success: false, message: 'Order not found.' });
 
     const newStatus = order_status || order.order_status;
@@ -601,7 +601,7 @@ router.patch('/admin/:id/dispatch', authenticate, requireRoles('SUPER_ADMIN', 'A
         finalDispatchDate || null,
         finalDispatchNotes || null,
         req.user.email,
-        id
+        order.id
       ]
     );
 
@@ -654,7 +654,7 @@ router.post('/admin/:id/mark-paid', authenticate, requireRoles('SUPER_ADMIN', 'A
     const { id } = req.params;
     const { payment_reference = '' } = req.body;
 
-    const order = await get('SELECT * FROM orders WHERE id = ?', [id]);
+    const order = await get('SELECT * FROM orders WHERE id = ? OR order_number = ?', [id, id]);
     if (!order) return res.status(404).json({ success: false, message: 'Order not found.' });
 
     const ref = payment_reference.trim() || `VERIFIED_ONLINE_${Date.now()}`;

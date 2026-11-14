@@ -91,6 +91,7 @@ export const adminApi = {
     const query = new URLSearchParams(params).toString();
     return adminRequest(`/orders/admin/list?${query}`);
   },
+  getOrderDetails: (id) => adminRequest(`/orders/${id}`),
   updateOrderStatus: (id, order_status) =>
     adminRequest(`/orders/admin/${id}/status`, {
       method: 'PATCH',

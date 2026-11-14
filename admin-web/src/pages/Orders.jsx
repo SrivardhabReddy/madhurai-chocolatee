@@ -39,35 +39,55 @@ export default function Orders() {
     }
   };
 
-  const loadOrders = () => {
-    setLoading(true);
+  const loadOrders = (showSpinner = true) => {
+    if (showSpinner) setLoading(true);
     adminApi.getOrders({
       q: search,
       status: statusFilter,
       payment_status: paymentFilter
     }).then(res => {
       if (res.success) setOrders(res.data);
-    }).finally(() => setLoading(false));
+    }).finally(() => {
+      if (showSpinner) setLoading(false);
+    });
   };
 
   useEffect(() => {
-    loadOrders();
+    loadOrders(true);
+    // Background auto-refresh every 12 seconds so new orders appear live
+    const interval = setInterval(() => {
+      loadOrders(false);
+    }, 12000);
+    return () => clearInterval(interval);
   }, [search, statusFilter, paymentFilter]);
 
   const handleInspectOrder = async (order) => {
     setSelectedOrder(order);
     setModalLoading(true);
     try {
-      // Fetch fresh order details with items
-      const res = await fetch(`/api/orders/${order.id}`);
-      const data = await res.json();
+      // Fetch fresh order details with items using adminApi
+      const data = await adminApi.getOrderDetails(order.id);
       if (data.success) {
         setOrderDetails(data.data);
       }
     } catch (e) {
-      console.error(e);
+      console.error('Failed to load order details:', e);
     } finally {
       setModalLoading(false);
+    }
+  };
+
+  const handleDirectStatusChange = async (orderId, newStatus) => {
+    try {
+      const res = await adminApi.updateOrderStatus(orderId, newStatus);
+      if (res.success) {
+        setOrders(prev => prev.map(o => (o.id === orderId || o.order_number === orderId) ? { ...o, order_status: newStatus } : o));
+        if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.order_number === orderId)) {
+          setSelectedOrder(prev => ({ ...prev, order_status: newStatus }));
+        }
+      }
+    } catch (err) {
+      alert(err.message || 'Status update failed.');
     }
   };
 
@@ -78,7 +98,7 @@ export default function Orders() {
       const res = await adminApi.updateOrderStatus(selectedOrder.id, newStatus);
       if (res.success) {
         setSelectedOrder(prev => ({ ...prev, order_status: newStatus }));
-        loadOrders();
+        loadOrders(false);
       }
     } catch (err) {
       alert(err.message || 'Status update failed.');
@@ -184,29 +204,52 @@ export default function Orders() {
             <tr>
               <th>Order ID</th>
               <th>Customer</th>
-              <th>Phone</th>
-              <th>Pincode</th>
+              <th>Buyer Delivery Address</th>
               <th>Total Amount</th>
               <th>Payment</th>
-              <th>Status</th>
+              <th>Fulfillment Status</th>
               <th>Courier / Tracking</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="9" style={{ textAlign: 'center', padding: '30px' }}>Loading orders...</td></tr>
+              <tr><td colSpan="8" style={{ textAlign: 'center', padding: '30px' }}>Loading orders...</td></tr>
             ) : orders.length > 0 ? (
               orders.map(o => (
                 <tr key={o.id}>
                   <td><strong>{o.order_number}</strong></td>
-                  <td>{o.customer_name}</td>
                   <td>
-                    <a href={`tel:${o.customer_phone}`} style={{ color: 'inherit', textDecoration: 'none' }}>
-                      {o.customer_phone}
-                    </a>
+                    <div>
+                      <strong style={{ display: 'block', fontSize: '0.88rem' }}>{o.customer_name}</strong>
+                      <a href={`tel:${o.customer_phone}`} style={{ color: 'var(--admin-accent)', textDecoration: 'none', fontSize: '0.8rem', display: 'block' }}>
+                        📞 {o.customer_phone}
+                      </a>
+                      {o.customer_email && (
+                        <span style={{ fontSize: '0.72rem', color: 'var(--admin-text-muted)' }}>{o.customer_email}</span>
+                      )}
+                    </div>
                   </td>
-                  <td>{o.pincode}</td>
+                  <td>
+                    <div style={{ maxWidth: '250px' }}>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--admin-text-main)', lineHeight: '1.4', marginBottom: '4px' }}>
+                        📍 {o.delivery_address || `Pincode: ${o.pincode}`}
+                      </div>
+                      {o.delivery_address && (
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(o.delivery_address);
+                            alert(`Copied address for ${o.order_number}:\n${o.delivery_address}`);
+                          }}
+                          className="btn-admin btn-admin-outline"
+                          style={{ fontSize: '0.68rem', padding: '2px 7px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+                          title="Copy delivery address to clipboard"
+                        >
+                          📋 Copy Address
+                        </button>
+                      )}
+                    </div>
+                  </td>
                   <td>
                     {o.payment_status === 'PAID' ? (
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -222,7 +265,7 @@ export default function Orders() {
                   </td>
                   <td>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                      <span className={`status-pill ${o.payment_status === 'PAID' ? 'pill-success' : 'pill-warning'}`} style={{ fontSize: '0.72rem', width: 'fit-content' }}>
+                      <span className={`status-pill ${o.payment_status === 'PAID' ? 'pill-success' : o.payment_status === 'FAILED' ? 'pill-danger' : 'pill-warning'}`} style={{ fontSize: '0.72rem', width: 'fit-content' }}>
                         {o.payment_status} ({o.payment_method})
                       </span>
                       {o.payment_reference && (
@@ -233,9 +276,26 @@ export default function Orders() {
                     </div>
                   </td>
                   <td>
-                    <span className={`status-pill ${o.order_status === 'DELIVERED' ? 'pill-success' : o.order_status === 'CANCELLED' ? 'pill-danger' : ['SHIPPED', 'OUT_FOR_DELIVERY'].includes(o.order_status) ? 'pill-info' : 'pill-warning'}`} style={{ fontSize: '0.74rem' }}>
-                      {o.order_status}
-                    </span>
+                    <select
+                      value={o.order_status}
+                      onChange={(e) => handleDirectStatusChange(o.id, e.target.value)}
+                      className="admin-select"
+                      style={{
+                        fontSize: '0.74rem',
+                        padding: '4px 6px',
+                        fontWeight: '700',
+                        width: '155px',
+                        cursor: 'pointer',
+                        borderRadius: '6px',
+                        borderColor: o.order_status === 'DELIVERED' ? '#059669' : o.order_status === 'CANCELLED' ? '#DC2626' : ['SHIPPED', 'OUT_FOR_DELIVERY'].includes(o.order_status) ? '#2563EB' : '#D97706',
+                        backgroundColor: o.order_status === 'DELIVERED' ? '#ECFDF5' : o.order_status === 'CANCELLED' ? '#FEF2F2' : ['SHIPPED', 'OUT_FOR_DELIVERY'].includes(o.order_status) ? '#EFF6FF' : '#FFFBEB'
+                      }}
+                      title="Click to change order lifecycle status"
+                    >
+                      {statusOptions.map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
                   </td>
                   <td>
                     {o.courier_name || o.tracking_number ? (
@@ -305,7 +365,7 @@ export default function Orders() {
                 </tr>
               ))
             ) : (
-              <tr><td colSpan="9" style={{ textAlign: 'center', padding: '30px' }}>No orders found.</td></tr>
+              <tr><td colSpan="8" style={{ textAlign: 'center', padding: '30px' }}>No orders found.</td></tr>
             )}
           </tbody>
         </table>
