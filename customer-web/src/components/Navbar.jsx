@@ -39,6 +39,11 @@ export default function Navbar({ onNavigate, currentPage }) {
             {areaLimit?.bannerText || '🚚 Handcrafted Fresh Cacao: Express Delivery available up to Nellore & South Hubs!'}
           </span>
         </span>
+        {areaLimit?.dailyPromo?.active && areaLimit?.dailyPromo?.remainingSlots > 0 && (
+          <span style={{ backgroundColor: '#10B981', color: '#FFFFFF', fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '12px' }}>
+            🎁 {areaLimit.dailyPromo.remainingSlots} Free Delivery Slots Left Today!
+          </span>
+        )}
         <span style={{ opacity: 0.9, fontSize: '0.78rem', backgroundColor: 'rgba(245, 158, 11, 0.2)', padding: '2px 8px', borderRadius: '12px', border: '1px solid rgba(245, 158, 11, 0.4)' }}>
           {areaLimit?.active ? `📍 Service Area Limit: Upto ${areaLimit.limitCity}` : '🇮🇳 Pan-India Shipping'}
         </span>

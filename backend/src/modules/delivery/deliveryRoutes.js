@@ -51,9 +51,29 @@ router.get('/area-limit', async (req, res, next) => {
   }
 });
 
+// Public Daily Delivery & Free Promo Status
+router.get('/daily-status', async (req, res, next) => {
+  try {
+    const status = await DeliveryEngine.getDailyDeliveryStatus();
+    return res.json({ success: true, data: status });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ==========================================
 // ADMIN APIS
 // ==========================================
+
+// Admin Daily Delivery Quota & Capacity Status
+router.get('/admin/daily-status', authenticate, requireRoles('SUPER_ADMIN', 'ADMIN', 'ORDER_MANAGER'), async (req, res, next) => {
+  try {
+    const status = await DeliveryEngine.getDailyDeliveryStatus();
+    return res.json({ success: true, data: status });
+  } catch (err) {
+    next(err);
+  }
+});
 
 // Zones
 router.get('/admin/zones', authenticate, requireRoles('SUPER_ADMIN', 'ADMIN', 'ORDER_MANAGER'), async (req, res, next) => {

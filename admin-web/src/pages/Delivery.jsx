@@ -1,14 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { Truck, MapPin, Plus, Trash2, Edit2, Sliders, CheckCircle, X, Upload } from 'lucide-react';
+import { Truck, MapPin, Plus, Trash2, Edit2, Sliders, CheckCircle, X, Upload, Gift, Calendar, Clock, AlertTriangle, Sparkles, RefreshCw, Check } from 'lucide-react';
 import { adminApi } from '../services/adminApi.js';
 
 export default function Delivery() {
-  const [activeTab, setActiveTab] = useState('area-limit'); // 'area-limit', 'rules', 'pincodes', 'zones', 'settings'
+  const [activeTab, setActiveTab] = useState('daily-quota'); // 'daily-quota', 'area-limit', 'rules', 'pincodes', 'zones', 'settings'
   const [rules, setRules] = useState([]);
   const [pincodes, setPincodes] = useState([]);
   const [zones, setZones] = useState([]);
   const [settings, setSettings] = useState({});
   const [loading, setLoading] = useState(true);
+
+  // Daily Delivery Quota & Capacity State
+  const [dailyStatus, setDailyStatus] = useState(null);
+  const [savingDaily, setSavingDaily] = useState(false);
+  const [dailySuccess, setDailySuccess] = useState('');
+  const [dailyForm, setDailyForm] = useState({
+    daily_free_delivery_enabled: 'false',
+    daily_free_delivery_limit: '10',
+    daily_free_delivery_mode: 'ALL_DAYS', // 'ALL_DAYS' or 'SPECIFIC_DATE'
+    daily_free_delivery_date: '',
+    daily_free_delivery_banner: '🎉 Special Offer: First 10 orders today get 100% FREE DELIVERY!',
+    daily_order_cap_enabled: 'false',
+    daily_max_deliveries: '50',
+    daily_order_cap_mode: 'ALL_DAYS',
+    daily_order_cap_date: '',
+    daily_order_cap_action: 'NEXT_DAY', // 'NEXT_DAY' or 'PAUSE_ORDERS'
+    daily_order_cap_notice: "🚚 Notice: Today's delivery capacity is full. New orders will be dispatched tomorrow."
+  });
 
   // Delivery Area Limit State
   const [areaLimitForm, setAreaLimitForm] = useState({
@@ -120,11 +138,13 @@ export default function Delivery() {
       adminApi.getDeliveryRules(),
       adminApi.getPincodes({ q: pinSearch }),
       adminApi.getZones(),
-      adminApi.getDeliverySettings()
-    ]).then(([rRes, pRes, zRes, sRes]) => {
+      adminApi.getDeliverySettings(),
+      adminApi.getDailyDeliveryStatus ? adminApi.getDailyDeliveryStatus().catch(() => ({ success: false })) : Promise.resolve({ success: false })
+    ]).then(([rRes, pRes, zRes, sRes, dRes]) => {
       if (rRes.success) setRules(rRes.data);
       if (pRes.success) setPincodes(pRes.data);
       if (zRes.success) setZones(zRes.data);
+      if (dRes && dRes.success) setDailyStatus(dRes.data);
       if (sRes.success) {
         const sMap = sRes.data.reduce((acc, s) => { acc[s.setting_key] = s.setting_value; return acc; }, {});
         setSettings(sMap);
@@ -134,6 +154,19 @@ export default function Delivery() {
           allowedCities: sMap.delivery_allowed_cities || 'Nellore, Madurai, Chennai, Bengaluru, Hyderabad',
           bannerText: sMap.delivery_area_banner_text || '🚚 Handcrafted Fresh Cacao: Express Delivery available up to Nellore (AP) & South India Hubs!',
           preset: sMap.delivery_area_preset || 'UPTO_NELLORE'
+        });
+        setDailyForm({
+          daily_free_delivery_enabled: sMap.daily_free_delivery_enabled || 'false',
+          daily_free_delivery_limit: sMap.daily_free_delivery_limit || '10',
+          daily_free_delivery_mode: sMap.daily_free_delivery_mode || 'ALL_DAYS',
+          daily_free_delivery_date: sMap.daily_free_delivery_date || '',
+          daily_free_delivery_banner: sMap.daily_free_delivery_banner || '🎉 Special Offer: First 10 orders today get 100% FREE DELIVERY!',
+          daily_order_cap_enabled: sMap.daily_order_cap_enabled || 'false',
+          daily_max_deliveries: sMap.daily_max_deliveries || '50',
+          daily_order_cap_mode: sMap.daily_order_cap_mode || 'ALL_DAYS',
+          daily_order_cap_date: sMap.daily_order_cap_date || '',
+          daily_order_cap_action: sMap.daily_order_cap_action || 'NEXT_DAY',
+          daily_order_cap_notice: sMap.daily_order_cap_notice || "🚚 Notice: Today's delivery capacity is full. New orders will be dispatched tomorrow."
         });
       }
     }).finally(() => setLoading(false));
@@ -304,10 +337,56 @@ export default function Delivery() {
     }
   };
 
+  const handleSaveDailyQuota = async (e) => {
+    if (e) e.preventDefault();
+    setSavingDaily(true);
+    setDailySuccess('');
+    try {
+      await adminApi.updateDeliverySettings({
+        daily_free_delivery_enabled: dailyForm.daily_free_delivery_enabled,
+        daily_free_delivery_limit: String(dailyForm.daily_free_delivery_limit || '10'),
+        daily_free_delivery_mode: dailyForm.daily_free_delivery_mode,
+        daily_free_delivery_date: dailyForm.daily_free_delivery_date || '',
+        daily_free_delivery_banner: dailyForm.daily_free_delivery_banner,
+        daily_order_cap_enabled: dailyForm.daily_order_cap_enabled,
+        daily_max_deliveries: String(dailyForm.daily_max_deliveries || '50'),
+        daily_order_cap_mode: dailyForm.daily_order_cap_mode,
+        daily_order_cap_date: dailyForm.daily_order_cap_date || '',
+        daily_order_cap_action: dailyForm.daily_order_cap_action,
+        daily_order_cap_notice: dailyForm.daily_order_cap_notice
+      });
+      setDailySuccess('Daily Delivery Quota & Capacity settings saved successfully!');
+      setTimeout(() => setDailySuccess(''), 5000);
+      const res = await adminApi.getDailyDeliveryStatus();
+      if (res && res.success) setDailyStatus(res.data);
+    } catch (err) {
+      alert(err.message || 'Failed to save daily quota settings.');
+    } finally {
+      setSavingDaily(false);
+    }
+  };
+
+  const handleRefreshDaily = async () => {
+    try {
+      const res = await adminApi.getDailyDeliveryStatus();
+      if (res && res.success) setDailyStatus(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
     <div>
       {/* Sub-navigation Tabs */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '24px', flexWrap: 'wrap' }}>
+        <button
+          onClick={() => setActiveTab('daily-quota')}
+          className={`btn-admin ${activeTab === 'daily-quota' ? 'btn-admin-primary' : 'btn-admin-outline'}`}
+        >
+          <Gift size={16} />
+          <span>🎁 Daily Delivery & Quota</span>
+        </button>
+
         <button
           onClick={() => setActiveTab('area-limit')}
           className={`btn-admin ${activeTab === 'area-limit' ? 'btn-admin-primary' : 'btn-admin-outline'}`}
@@ -347,6 +426,384 @@ export default function Delivery() {
           Global Delivery Defaults
         </button>
       </div>
+
+      {/* Tab: Daily Free Delivery & Order Quota */}
+      {activeTab === 'daily-quota' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginBottom: '30px' }}>
+          
+          {/* Top Live Stats Bar */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+            <div className="admin-card" style={{ padding: '18px 20px', borderLeft: '4px solid #3B82F6' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--admin-text-muted)', textTransform: 'uppercase' }}>Orders Placed Today</span>
+                <Clock size={18} color="#3B82F6" />
+              </div>
+              <div style={{ fontSize: '1.9rem', fontWeight: 800, marginTop: '8px', color: '#1E293B' }}>
+                {dailyStatus?.todayOrderCount ?? 0}
+              </div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--admin-text-muted)', marginTop: '4px' }}>
+                Date: {dailyStatus?.todayDate || new Date().toISOString().slice(0, 10)} (IST)
+              </div>
+            </div>
+
+            <div className="admin-card" style={{ padding: '18px 20px', borderLeft: '4px solid #10B981' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--admin-text-muted)', textTransform: 'uppercase' }}>Daily Free Delivery</span>
+                <Gift size={18} color="#10B981" />
+              </div>
+              <div style={{ fontSize: '1.9rem', fontWeight: 800, marginTop: '8px', color: dailyStatus?.dailyFreeDelivery?.isActiveToday ? '#10B981' : '#64748B' }}>
+                {dailyStatus?.dailyFreeDelivery?.isActiveToday 
+                  ? `${dailyStatus.dailyFreeDelivery.slotsRemaining} Left` 
+                  : (dailyForm.daily_free_delivery_enabled === 'true' ? 'Scheduled' : 'Disabled')}
+              </div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--admin-text-muted)', marginTop: '4px' }}>
+                {dailyStatus?.dailyFreeDelivery?.isActiveToday 
+                  ? `${dailyStatus.dailyFreeDelivery.slotsUsed} of ${dailyStatus.dailyFreeDelivery.limit} free slots used today`
+                  : (dailyForm.daily_free_delivery_enabled === 'true' ? `Active on ${dailyForm.daily_free_delivery_date || 'specific date'}` : 'Turn toggle on to activate')}
+              </div>
+            </div>
+
+            <div className="admin-card" style={{ padding: '18px 20px', borderLeft: '4px solid #F59E0B' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--admin-text-muted)', textTransform: 'uppercase' }}>Daily Delivery Capacity</span>
+                <Truck size={18} color="#F59E0B" />
+              </div>
+              <div style={{ fontSize: '1.9rem', fontWeight: 800, marginTop: '8px', color: dailyStatus?.dailyOrderCap?.isActiveToday ? '#D97706' : '#64748B' }}>
+                {dailyStatus?.dailyOrderCap?.isActiveToday 
+                  ? `${dailyStatus.dailyOrderCap.capacityRemaining} Left` 
+                  : 'Unlimited'}
+              </div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--admin-text-muted)', marginTop: '4px' }}>
+                {dailyStatus?.dailyOrderCap?.isActiveToday
+                  ? `Cap: ${dailyStatus.dailyOrderCap.maxDeliveries} orders | ${dailyStatus.dailyOrderCap.action === 'NEXT_DAY' ? 'Next-Day Dispatch' : 'Pause Orders'}`
+                  : 'No order limit enforced'}
+              </div>
+            </div>
+
+            <div className="admin-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '16px' }}>
+              <button 
+                type="button"
+                onClick={handleRefreshDaily}
+                className="btn-admin btn-admin-outline"
+                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+              >
+                <RefreshCw size={15} />
+                <span>Refresh Live Counters</span>
+              </button>
+              <span style={{ fontSize: '0.74rem', color: 'var(--admin-text-muted)', marginTop: '6px' }}>
+                Live auto-synced with store orders
+              </span>
+            </div>
+          </div>
+
+          {dailySuccess && (
+            <div style={{ backgroundColor: '#DCFCE7', color: '#166534', padding: '14px 18px', borderRadius: '10px', fontSize: '0.92rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <CheckCircle size={20} color="#166534" />
+              <span>{dailySuccess}</span>
+            </div>
+          )}
+
+          {/* Form Grid */}
+          <form onSubmit={handleSaveDailyQuota} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '24px' }}>
+            
+            {/* CARD 1: Daily Free Delivery Quota */}
+            <div className="admin-card" style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Gift size={20} color="#10B981" />
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: '800', margin: 0 }}>Daily Free Delivery Quota</h3>
+                  </div>
+                  <p style={{ fontSize: '0.84rem', color: 'var(--admin-text-muted)', margin: '4px 0 0 0' }}>
+                    Reward the first X customers of the day with 100% Free Shipping.
+                  </p>
+                </div>
+                <span className={`status-pill ${dailyForm.daily_free_delivery_enabled === 'true' ? 'pill-success' : 'pill-neutral'}`}>
+                  {dailyForm.daily_free_delivery_enabled === 'true' ? 'PROMO ACTIVE' : 'PROMO PAUSED'}
+                </span>
+              </div>
+
+              {/* Enable Toggle */}
+              <div style={{ padding: '14px 16px', backgroundColor: '#F0FDF4', borderRadius: '10px', border: '1px solid #BBF7D0' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontWeight: '700', fontSize: '0.95rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={dailyForm.daily_free_delivery_enabled === 'true'}
+                    onChange={(e) => setDailyForm(prev => ({ ...prev, daily_free_delivery_enabled: e.target.checked ? 'true' : 'false' }))}
+                    style={{ width: '18px', height: '18px' }}
+                  />
+                  <span>Enable First-X-Orders Free Delivery</span>
+                </label>
+                <div style={{ fontSize: '0.8rem', color: '#166534', marginLeft: '30px', marginTop: '4px' }}>
+                  When enabled, buyers placing an order before the daily limit is exhausted will receive ₹0 delivery fee automatically.
+                </div>
+              </div>
+
+              {/* Quota Number + Presets */}
+              <div>
+                <label className="admin-label" style={{ fontWeight: '700' }}>Number of Free Delivery Orders per Day</label>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '10px' }}>
+                  <input
+                    type="number"
+                    min="1"
+                    max="1000"
+                    required
+                    value={dailyForm.daily_free_delivery_limit}
+                    onChange={(e) => setDailyForm(prev => ({ ...prev, daily_free_delivery_limit: e.target.value }))}
+                    className="admin-input"
+                    style={{ maxWidth: '160px', fontSize: '1.1rem', fontWeight: '700' }}
+                  />
+                  <span style={{ fontSize: '0.88rem', color: 'var(--admin-text-muted)' }}>first orders each active day</span>
+                </div>
+                {/* Presets */}
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {['5', '10', '20', '50'].map(num => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => setDailyForm(prev => ({
+                        ...prev,
+                        daily_free_delivery_limit: num,
+                        daily_free_delivery_banner: `🎉 Special Offer: First ${num} orders today get 100% FREE DELIVERY!`
+                      }))}
+                      className={`btn-admin btn-admin-sm ${dailyForm.daily_free_delivery_limit === num ? 'btn-admin-primary' : 'btn-admin-outline'}`}
+                    >
+                      First {num} Orders
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Schedule Mode */}
+              <div style={{ padding: '14px', backgroundColor: '#F8FAFC', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                <label className="admin-label" style={{ fontWeight: '700', marginBottom: '8px' }}>Schedule & Recurrence</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.88rem' }}>
+                    <input
+                      type="radio"
+                      name="daily_free_mode"
+                      value="ALL_DAYS"
+                      checked={dailyForm.daily_free_delivery_mode === 'ALL_DAYS'}
+                      onChange={() => setDailyForm(prev => ({ ...prev, daily_free_delivery_mode: 'ALL_DAYS' }))}
+                    />
+                    <span><strong>Every Day (Daily Recurring)</strong> — Resets quota at 12:00 AM IST midnight automatically every night</span>
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.88rem' }}>
+                    <input
+                      type="radio"
+                      name="daily_free_mode"
+                      value="SPECIFIC_DATE"
+                      checked={dailyForm.daily_free_delivery_mode === 'SPECIFIC_DATE'}
+                      onChange={() => setDailyForm(prev => ({ ...prev, daily_free_delivery_mode: 'SPECIFIC_DATE' }))}
+                    />
+                    <span><strong>Specific Date Only</strong> — Run promotion for a particular promotion/festival day only</span>
+                  </label>
+
+                  {dailyForm.daily_free_delivery_mode === 'SPECIFIC_DATE' && (
+                    <div style={{ marginLeft: '24px', marginTop: '6px' }}>
+                      <input
+                        type="date"
+                        value={dailyForm.daily_free_delivery_date}
+                        onChange={(e) => setDailyForm(prev => ({ ...prev, daily_free_delivery_date: e.target.value }))}
+                        className="admin-input"
+                        style={{ maxWidth: '200px' }}
+                      />
+                      <span style={{ fontSize: '0.78rem', color: 'var(--admin-text-muted)', marginLeft: '10px' }}>
+                        Selected date format: YYYY-MM-DD
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Promo Banner Text */}
+              <div>
+                <label className="admin-label" style={{ fontWeight: '700' }}>Announcement Ribbon / Checkout Reason Text</label>
+                <input
+                  type="text"
+                  value={dailyForm.daily_free_delivery_banner}
+                  onChange={(e) => setDailyForm(prev => ({ ...prev, daily_free_delivery_banner: e.target.value }))}
+                  className="admin-input"
+                  placeholder="e.g. 🎉 Special Offer: First 10 orders today get 100% FREE DELIVERY!"
+                />
+                <div style={{ fontSize: '0.78rem', color: 'var(--admin-text-muted)', marginTop: '4px' }}>
+                  Shown to customer at Checkout and at the top promo ribbon when slots are available.
+                </div>
+              </div>
+
+              {/* Live Preview Box */}
+              <div style={{ backgroundColor: '#F0FDF4', border: '1px dashed #10B981', padding: '12px 14px', borderRadius: '8px' }}>
+                <span style={{ fontSize: '0.76rem', fontWeight: 700, color: '#047857', textTransform: 'uppercase' }}>Customer Checkout Preview:</span>
+                <div style={{ marginTop: '4px', fontSize: '0.88rem', color: '#065F46', fontWeight: 600 }}>
+                  {dailyForm.daily_free_delivery_banner || `🎉 Special Offer: First ${dailyForm.daily_free_delivery_limit} orders today get 100% FREE DELIVERY!`}
+                </div>
+              </div>
+            </div>
+
+            {/* CARD 2: Daily Order Delivery Cap / Capacity */}
+            <div className="admin-card" style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Truck size={20} color="#F59E0B" />
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: '800', margin: 0 }}>Daily Order Capacity Limit</h3>
+                  </div>
+                  <p style={{ fontSize: '0.84rem', color: 'var(--admin-text-muted)', margin: '4px 0 0 0' }}>
+                    Set max deliveries per day to avoid kitchen/kitchen dispatch overload.
+                  </p>
+                </div>
+                <span className={`status-pill ${dailyForm.daily_order_cap_enabled === 'true' ? 'pill-warning' : 'pill-neutral'}`}>
+                  {dailyForm.daily_order_cap_enabled === 'true' ? 'CAP ACTIVE' : 'NO CAP'}
+                </span>
+              </div>
+
+              {/* Enable Toggle */}
+              <div style={{ padding: '14px 16px', backgroundColor: '#FFFBEB', borderRadius: '10px', border: '1px solid #FDE68A' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontWeight: '700', fontSize: '0.95rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={dailyForm.daily_order_cap_enabled === 'true'}
+                    onChange={(e) => setDailyForm(prev => ({ ...prev, daily_order_cap_enabled: e.target.checked ? 'true' : 'false' }))}
+                    style={{ width: '18px', height: '18px' }}
+                  />
+                  <span>Enforce Maximum Deliveries Per Day</span>
+                </label>
+                <div style={{ fontSize: '0.8rem', color: '#92400E', marginLeft: '30px', marginTop: '4px' }}>
+                  Caps the number of orders accepted in a single day.
+                </div>
+              </div>
+
+              {/* Max Deliveries + Presets */}
+              <div>
+                <label className="admin-label" style={{ fontWeight: '700' }}>Maximum Deliveries Allowed</label>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '10px' }}>
+                  <input
+                    type="number"
+                    min="1"
+                    max="10000"
+                    required
+                    value={dailyForm.daily_max_deliveries}
+                    onChange={(e) => setDailyForm(prev => ({ ...prev, daily_max_deliveries: e.target.value }))}
+                    className="admin-input"
+                    style={{ maxWidth: '160px', fontSize: '1.1rem', fontWeight: '700' }}
+                  />
+                  <span style={{ fontSize: '0.88rem', color: 'var(--admin-text-muted)' }}>orders maximum</span>
+                </div>
+                {/* Presets */}
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {['25', '50', '100', '200'].map(num => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => setDailyForm(prev => ({ ...prev, daily_max_deliveries: num }))}
+                      className={`btn-admin btn-admin-sm ${dailyForm.daily_max_deliveries === num ? 'btn-admin-primary' : 'btn-admin-outline'}`}
+                    >
+                      {num} Deliveries
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Schedule Mode */}
+              <div style={{ padding: '14px', backgroundColor: '#F8FAFC', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                <label className="admin-label" style={{ fontWeight: '700', marginBottom: '8px' }}>Schedule & Recurrence</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.88rem' }}>
+                    <input
+                      type="radio"
+                      name="daily_cap_mode"
+                      value="ALL_DAYS"
+                      checked={dailyForm.daily_order_cap_mode === 'ALL_DAYS'}
+                      onChange={() => setDailyForm(prev => ({ ...prev, daily_order_cap_mode: 'ALL_DAYS' }))}
+                    />
+                    <span><strong>Every Day</strong> — Max cap applies daily, resetting at 12:00 AM IST</span>
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.88rem' }}>
+                    <input
+                      type="radio"
+                      name="daily_cap_mode"
+                      value="SPECIFIC_DATE"
+                      checked={dailyForm.daily_order_cap_mode === 'SPECIFIC_DATE'}
+                      onChange={() => setDailyForm(prev => ({ ...prev, daily_order_cap_mode: 'SPECIFIC_DATE' }))}
+                    />
+                    <span><strong>Specific Date Only</strong> — Cap orders on a high-volume festival/specific day</span>
+                  </label>
+
+                  {dailyForm.daily_order_cap_mode === 'SPECIFIC_DATE' && (
+                    <div style={{ marginLeft: '24px', marginTop: '6px' }}>
+                      <input
+                        type="date"
+                        value={dailyForm.daily_order_cap_date}
+                        onChange={(e) => setDailyForm(prev => ({ ...prev, daily_order_cap_date: e.target.value }))}
+                        className="admin-input"
+                        style={{ maxWidth: '200px' }}
+                      />
+                      <span style={{ fontSize: '0.78rem', color: 'var(--admin-text-muted)', marginLeft: '10px' }}>
+                        Selected date format: YYYY-MM-DD
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Action When Reached */}
+              <div style={{ padding: '14px', backgroundColor: '#F8FAFC', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                <label className="admin-label" style={{ fontWeight: '700', marginBottom: '8px' }}>Action When Cap is Reached</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.88rem' }}>
+                    <input
+                      type="radio"
+                      name="daily_cap_action"
+                      value="NEXT_DAY"
+                      checked={dailyForm.daily_order_cap_action === 'NEXT_DAY'}
+                      onChange={() => setDailyForm(prev => ({ ...prev, daily_order_cap_action: 'NEXT_DAY' }))}
+                    />
+                    <span><strong>Next-Day Dispatch Schedule (Recommended)</strong> — Orders still accepted, customer notified dispatch is tomorrow (+1 day)</span>
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.88rem' }}>
+                    <input
+                      type="radio"
+                      name="daily_cap_action"
+                      value="PAUSE_ORDERS"
+                      checked={dailyForm.daily_order_cap_action === 'PAUSE_ORDERS'}
+                      onChange={() => setDailyForm(prev => ({ ...prev, daily_order_cap_action: 'PAUSE_ORDERS' }))}
+                    />
+                    <span><strong>Pause Delivery Orders</strong> — Stops accepting further delivery orders once today's cap is filled</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Notice Text */}
+              <div>
+                <label className="admin-label" style={{ fontWeight: '700' }}>Customer Notice Text When Cap is Reached</label>
+                <input
+                  type="text"
+                  value={dailyForm.daily_order_cap_notice}
+                  onChange={(e) => setDailyForm(prev => ({ ...prev, daily_order_cap_notice: e.target.value }))}
+                  className="admin-input"
+                  placeholder="e.g. 🚚 Notice: Today's delivery capacity is full. New orders will be dispatched tomorrow."
+                />
+              </div>
+            </div>
+
+            {/* Bottom Save Bar */}
+            <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: '14px', alignItems: 'center', paddingTop: '10px' }}>
+              <button
+                type="submit"
+                disabled={savingDaily}
+                className="btn-admin btn-admin-primary"
+                style={{ padding: '12px 28px', fontSize: '1rem', fontWeight: 700 }}
+              >
+                {savingDaily ? 'Saving Settings...' : '💾 Save Daily Quota & Limits'}
+              </button>
+            </div>
+          </form>
+
+        </div>
+      )}
 
       {/* Tab 0: Delivery Area Limit & Boundary Configuration */}
       {activeTab === 'area-limit' && (

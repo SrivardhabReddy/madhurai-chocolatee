@@ -189,6 +189,7 @@ export const adminApi = {
     }),
 
   getDeliverySettings: () => adminRequest('/delivery/admin/settings'),
+  getDailyDeliveryStatus: () => adminRequest('/delivery/admin/daily-status'),
   updateDeliverySettings: (settings) =>
     adminRequest('/delivery/admin/settings', {
       method: 'PUT',

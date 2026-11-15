@@ -884,6 +884,16 @@ export default function Checkout({ onNavigate }) {
                           📍 {serviceability.areaLimitNotice}
                         </div>
                       )}
+                      {serviceability.dailyCapNotice && (
+                        <div style={{ fontSize: '0.8rem', color: '#92400E', backgroundColor: '#FEF3C7', padding: '4px 10px', borderRadius: '6px', marginTop: '6px', fontWeight: '600', border: '1px solid #FDE68A' }}>
+                          {serviceability.dailyCapNotice}
+                        </div>
+                      )}
+                      {serviceability.freeDeliveryReason && (
+                        <div style={{ fontSize: '0.8rem', color: '#166534', backgroundColor: '#DCFCE7', padding: '4px 10px', borderRadius: '6px', marginTop: '6px', fontWeight: '600', border: '1px solid #BBF7D0' }}>
+                          {serviceability.freeDeliveryReason}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1286,6 +1296,16 @@ export default function Checkout({ onNavigate }) {
                     <span>Shipping Fee</span>
                     <span>{isFreeDelivery ? <strong style={{ color: 'var(--success-color)' }}>FREE</strong> : `₹${deliveryFee}`}</span>
                   </div>
+                  {isFreeDelivery && (summary?.delivery?.freeDeliveryReason || serviceability?.freeDeliveryReason) && (
+                    <div style={{ fontSize: '0.8rem', color: 'var(--success-color)', textAlign: 'right', marginTop: '-4px', fontWeight: 600 }}>
+                      {summary?.delivery?.freeDeliveryReason || serviceability?.freeDeliveryReason}
+                    </div>
+                  )}
+                  {summary?.delivery?.dailyCapNotice && (
+                    <div style={{ fontSize: '0.78rem', color: '#92400E', backgroundColor: '#FEF3C7', padding: '4px 8px', borderRadius: '4px', marginTop: '4px', fontWeight: 600 }}>
+                      {summary.delivery.dailyCapNotice}
+                    </div>
+                  )}
 
                   <div style={{
                     display: 'flex',

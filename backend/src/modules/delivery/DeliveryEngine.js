@@ -2,6 +2,36 @@ import { get, all } from '../../db/index.js';
 
 export class DeliveryEngine {
   /**
+   * Helper to retrieve current Indian Standard Time (IST) date string & UTC date string
+   */
+  static getTodayDates() {
+    const now = new Date();
+    let istDate = '';
+    try {
+      istDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+    } catch (e) {
+      istDate = now.toISOString().slice(0, 10);
+    }
+    const utcDate = now.toISOString().slice(0, 10);
+    return { istDate, utcDate, now };
+  }
+
+  /**
+   * Count total non-cancelled orders placed today
+   */
+  static async getTodayOrderCount() {
+    const { istDate, utcDate } = this.getTodayDates();
+    const todayStats = await get(
+      `SELECT COUNT(*) as today_orders
+       FROM orders
+       WHERE (CAST(created_at AS TEXT) LIKE ? OR CAST(created_at AS TEXT) LIKE ?)
+         AND order_status != 'CANCELLED'`,
+      [`${istDate}%`, `${utcDate}%`]
+    );
+    return parseInt(todayStats?.today_orders || 0, 10);
+  }
+
+  /**
    * Check full serviceability and calculate delivery pricing
    * @param {Object} params
    * @param {string} params.pincode
@@ -96,6 +126,50 @@ export class DeliveryEngine {
       }
     }
 
+    // Today's date and order count for daily rules evaluation
+    const { istDate, utcDate } = this.getTodayDates();
+    const todayOrderCount = await this.getTodayOrderCount();
+
+    // ----------------------------------------------------
+    // DAILY DELIVERY CAPACITY / MAX ORDERS PER DAY CHECK
+    // ----------------------------------------------------
+    const isDailyCapEnabled = settings.daily_order_cap_enabled === 'true' || settings.daily_order_cap_enabled === '1';
+    const dailyCapMode = settings.daily_order_cap_mode || 'ALL_DAYS'; // 'ALL_DAYS' | 'SPECIFIC_DATE'
+    const dailyCapDate = (settings.daily_order_cap_date || '').trim();
+    const maxDeliveries = parseInt(settings.daily_max_deliveries || '50', 10);
+    const capAction = settings.daily_order_cap_action || 'NEXT_DAY'; // 'NEXT_DAY' | 'PAUSE_ORDERS'
+
+    const isCapActiveToday = isDailyCapEnabled && (
+      dailyCapMode === 'ALL_DAYS' || 
+      dailyCapDate === istDate || 
+      dailyCapDate === utcDate
+    );
+
+    let isCapReached = false;
+    let dailyCapNotice = null;
+    let extraDeliveryDays = 0;
+
+    if (isCapActiveToday && todayOrderCount >= maxDeliveries) {
+      isCapReached = true;
+      if (capAction === 'PAUSE_ORDERS') {
+        return {
+          serviceable: false,
+          pincode: cleanPin,
+          city: pinRecord.city,
+          state: pinRecord.state,
+          reason: settings.daily_order_cap_notice || `Today's delivery capacity limit of ${maxDeliveries} orders has been reached. Deliveries are temporarily closed for today.`,
+          deliveryCharge: 0,
+          freeDelivery: false,
+          codAvailable: false,
+          estimatedMinDays: 0,
+          estimatedMaxDays: 0
+        };
+      } else {
+        extraDeliveryDays = 1;
+        dailyCapNotice = settings.daily_order_cap_notice || `🚚 Notice: Today's delivery capacity (${maxDeliveries} orders) is full. Your order will be dispatched tomorrow.`;
+      }
+    }
+
     const defaultCharge = parseFloat(settings.default_delivery_charge || '40.00');
     const freeThreshold = parseFloat(settings.free_delivery_threshold || '500.00');
     const codEnabledGlobal = settings.cod_enabled !== 'false';
@@ -107,20 +181,50 @@ export class DeliveryEngine {
     let appliedCharge = pinRecord.delivery_charge !== undefined ? parseFloat(pinRecord.delivery_charge) : defaultCharge;
     let ruleMatched = false;
 
+    // ---------------------------------------------------------------------------------
+    // RULE PRIORITY 0: Daily Free Delivery Quota / Promotion (e.g. First 10 orders free)
+    // ---------------------------------------------------------------------------------
+    const isDailyFreeEnabled = settings.daily_free_delivery_enabled === 'true' || settings.daily_free_delivery_enabled === '1';
+    const dailyFreeMode = settings.daily_free_delivery_mode || 'ALL_DAYS'; // 'ALL_DAYS' | 'SPECIFIC_DATE'
+    const dailyFreeDate = (settings.daily_free_delivery_date || '').trim();
+    const dailyFreeLimit = parseInt(settings.daily_free_delivery_limit || '10', 10);
+    const isDailyFreeActiveToday = isDailyFreeEnabled && (
+      dailyFreeMode === 'ALL_DAYS' || 
+      dailyFreeDate === istDate || 
+      dailyFreeDate === utcDate
+    );
+
+    let isDailyPromoFree = false;
+    let dailyPromoSlotsRemaining = 0;
+
+    if (isDailyFreeActiveToday) {
+      dailyPromoSlotsRemaining = Math.max(0, dailyFreeLimit - todayOrderCount);
+      if (todayOrderCount < dailyFreeLimit) {
+        isDailyPromoFree = true;
+        isFreeDelivery = true;
+        appliedCharge = 0;
+        ruleMatched = true;
+        freeDeliveryReason = settings.daily_free_delivery_banner || 
+          `🎉 Daily Offer: First ${dailyFreeLimit} orders today get Free Delivery! (${dailyPromoSlotsRemaining} ${dailyPromoSlotsRemaining === 1 ? 'slot' : 'slots'} left)`;
+      }
+    }
+
     // RULE PRIORITY 1: Product-specific rule
-    for (const rule of activeRules.filter(r => r.rule_type === 'PRODUCT' && r.product_id)) {
-      const hasProduct = items.some(item => item.product_id === rule.product_id);
-      if (hasProduct) {
-        if (rule.free_delivery) {
-          isFreeDelivery = true;
-          freeDeliveryReason = rule.description || `Free delivery for ${rule.name}`;
-          appliedCharge = 0;
-          ruleMatched = true;
-          break;
-        } else if (rule.delivery_charge !== null) {
-          appliedCharge = parseFloat(rule.delivery_charge);
-          ruleMatched = true;
-          break;
+    if (!ruleMatched) {
+      for (const rule of activeRules.filter(r => r.rule_type === 'PRODUCT' && r.product_id)) {
+        const hasProduct = items.some(item => item.product_id === rule.product_id);
+        if (hasProduct) {
+          if (rule.free_delivery) {
+            isFreeDelivery = true;
+            freeDeliveryReason = rule.description || `Free delivery for ${rule.name}`;
+            appliedCharge = 0;
+            ruleMatched = true;
+            break;
+          } else if (rule.delivery_charge !== null) {
+            appliedCharge = parseFloat(rule.delivery_charge);
+            ruleMatched = true;
+            break;
+          }
         }
       }
     }
@@ -175,7 +279,7 @@ export class DeliveryEngine {
         }
       }
 
-      // Check Slabs if not free (e.g. ₹0-₹299 = ₹60, ₹300-₹499 = ₹40)
+      // Check Slabs if not free
       if (!isFreeDelivery && !ruleMatched) {
         const slabRule = activeRules.find(r => {
           if (r.rule_type !== 'ORDER_VALUE' || r.free_delivery) return false;
@@ -221,18 +325,26 @@ export class DeliveryEngine {
       deliveryCharge: isFreeDelivery ? 0 : appliedCharge,
       freeDelivery: isFreeDelivery,
       freeDeliveryReason: isFreeDelivery ? freeDeliveryReason : null,
-      estimatedMinDays: pinRecord.min_delivery_days,
-      estimatedMaxDays: pinRecord.max_delivery_days,
+      estimatedMinDays: (pinRecord.min_delivery_days || 2) + extraDeliveryDays,
+      estimatedMaxDays: (pinRecord.max_delivery_days || 5) + extraDeliveryDays,
       codAvailable,
       codReason: codReason || null,
       areaLimitNotice: isAreaLimitActive ? `Within Delivery Area Limit (Upto ${limitCity})` : null,
       limitCity: isAreaLimitActive ? limitCity : null,
+      dailyPromo: {
+        active: isDailyFreeActiveToday,
+        limit: dailyFreeLimit,
+        todayOrderCount,
+        slotsRemaining: dailyPromoSlotsRemaining,
+        applied: isDailyPromoFree
+      },
+      dailyCapNotice: dailyCapNotice || null,
       reason: null
     };
   }
 
   /**
-   * Get active area limit configuration
+   * Get active area limit & daily delivery promo configuration for public storefront
    */
   static async getAreaLimitInfo() {
     const settingsRows = await all(`SELECT setting_key, setting_value FROM delivery_settings`);
@@ -246,13 +358,102 @@ export class DeliveryEngine {
     const rawAllowed = settings.delivery_allowed_cities || 'Gudur, Nellore, Tirupati, Sullurpeta, Naidupeta, Kavali, Chennai, Bengaluru, Hyderabad, Madurai';
     const allowedCities = rawAllowed.split(',').map(c => c.trim()).filter(Boolean);
 
+    const { istDate, utcDate } = this.getTodayDates();
+    const todayOrders = await this.getTodayOrderCount();
+
+    const isDailyPromoActive = (settings.daily_free_delivery_enabled === 'true' || settings.daily_free_delivery_enabled === '1') && (
+      (settings.daily_free_delivery_mode || 'ALL_DAYS') === 'ALL_DAYS' ||
+      settings.daily_free_delivery_date === istDate ||
+      settings.daily_free_delivery_date === utcDate
+    );
+    const dailyLimit = parseInt(settings.daily_free_delivery_limit || '10', 10);
+    const remainingSlots = Math.max(0, dailyLimit - todayOrders);
+
+    let banner = settings.delivery_area_banner_text || `🚚 Handcrafted Fresh Cacao: Express Delivery available up to ${limitCity}! Check your pincode.`;
+    if (isDailyPromoActive && remainingSlots > 0) {
+      banner = settings.daily_free_delivery_banner || `🎉 Special Offer: First ${dailyLimit} orders today get 100% FREE DELIVERY! (${remainingSlots} slots remaining)`;
+    }
+
     return {
       active,
       limitCity,
       allowedCities,
       rawAllowedCities: rawAllowed,
-      bannerText: settings.delivery_area_banner_text || `🚚 Fresh Artisanal Cacao: Delivering across South India up to ${limitCity}! Check your pincode.`,
-      preset: settings.delivery_area_preset || 'UPTO_NELLORE'
+      bannerText: banner,
+      preset: settings.delivery_area_preset || 'UPTO_NELLORE',
+      dailyPromo: {
+        active: isDailyPromoActive,
+        limit: dailyLimit,
+        todayOrders,
+        remainingSlots
+      }
+    };
+  }
+
+  /**
+   * Get detailed status of daily delivery limits and free delivery promo for Admin
+   */
+  static async getDailyDeliveryStatus() {
+    const { istDate, utcDate } = this.getTodayDates();
+    const settingsRows = await all(`SELECT setting_key, setting_value FROM delivery_settings`);
+    const settings = settingsRows.reduce((acc, row) => {
+      acc[row.setting_key] = row.setting_value;
+      return acc;
+    }, {});
+
+    const todayOrderCount = await this.getTodayOrderCount();
+
+    // 1. Daily Free Delivery Promotion
+    const dailyFreeEnabled = settings.daily_free_delivery_enabled === 'true' || settings.daily_free_delivery_enabled === '1';
+    const dailyFreeLimit = parseInt(settings.daily_free_delivery_limit || '10', 10);
+    const dailyFreeMode = settings.daily_free_delivery_mode || 'ALL_DAYS'; // 'ALL_DAYS' | 'SPECIFIC_DATE'
+    const dailyFreeDate = (settings.daily_free_delivery_date || '').trim();
+    const isDailyFreeActiveToday = dailyFreeEnabled && (
+      dailyFreeMode === 'ALL_DAYS' ||
+      dailyFreeDate === istDate ||
+      dailyFreeDate === utcDate
+    );
+    const dailyFreeSlotsRemaining = Math.max(0, dailyFreeLimit - todayOrderCount);
+
+    // 2. Daily Order Capacity Limit
+    const dailyCapEnabled = settings.daily_order_cap_enabled === 'true' || settings.daily_order_cap_enabled === '1';
+    const dailyMaxDeliveries = parseInt(settings.daily_max_deliveries || '50', 10);
+    const dailyCapMode = settings.daily_order_cap_mode || 'ALL_DAYS'; // 'ALL_DAYS' | 'SPECIFIC_DATE'
+    const dailyCapDate = (settings.daily_order_cap_date || '').trim();
+    const dailyCapAction = settings.daily_order_cap_action || 'NEXT_DAY'; // 'NEXT_DAY' | 'PAUSE_ORDERS'
+    const isDailyCapActiveToday = dailyCapEnabled && (
+      dailyCapMode === 'ALL_DAYS' ||
+      dailyCapDate === istDate ||
+      dailyCapDate === utcDate
+    );
+    const isCapReached = isDailyCapActiveToday && todayOrderCount >= dailyMaxDeliveries;
+    const capacityRemaining = Math.max(0, dailyMaxDeliveries - todayOrderCount);
+
+    return {
+      todayDate: istDate,
+      todayOrderCount,
+      dailyFreeDelivery: {
+        enabled: dailyFreeEnabled,
+        limit: dailyFreeLimit,
+        mode: dailyFreeMode,
+        date: dailyFreeDate,
+        isActiveToday: isDailyFreeActiveToday,
+        slotsRemaining: dailyFreeSlotsRemaining,
+        slotsUsed: Math.min(todayOrderCount, dailyFreeLimit),
+        bannerText: settings.daily_free_delivery_banner || `🎉 Special Offer: First ${dailyFreeLimit} orders today get 100% FREE DELIVERY!`
+      },
+      dailyOrderCap: {
+        enabled: dailyCapEnabled,
+        maxDeliveries: dailyMaxDeliveries,
+        mode: dailyCapMode,
+        date: dailyCapDate,
+        action: dailyCapAction,
+        isActiveToday: isDailyCapActiveToday,
+        isCapReached,
+        capacityRemaining,
+        noticeText: settings.daily_order_cap_notice || `🚚 Notice: Today's delivery capacity is full. New orders will be dispatched tomorrow.`
+      },
+      rawSettings: settings
     };
   }
 }
