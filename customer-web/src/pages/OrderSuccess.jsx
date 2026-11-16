@@ -1,37 +1,217 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle2, Clock, MapPin, Truck, ShoppingBag, ArrowRight } from 'lucide-react';
+import { CheckCircle2, Clock, MapPin, Truck, ShoppingBag, ArrowRight, AlertCircle } from 'lucide-react';
 import { api } from '../services/api.js';
 import { trackPurchaseConversion } from '../utils/gtm.js';
+
+function getOrderIdFromUrl() {
+  if (typeof window === 'undefined') return null;
+  const path = window.location.pathname || '';
+  if (path.startsWith('/order-success/')) {
+    return path.replace('/order-success/', '').split('/')[0].split('?')[0];
+  }
+  if (path.startsWith('/account/orders/')) {
+    return path.replace('/account/orders/', '').split('/')[0].split('?')[0];
+  }
+  const searchParams = new URLSearchParams(window.location.search);
+  return searchParams.get('orderId') || searchParams.get('order_id');
+}
 
 export default function OrderSuccess({ orderId, onNavigate }) {
   const [orderData, setOrderData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const handleNavigate = (page, params) => {
+    if (typeof onNavigate === 'function') {
+      onNavigate(page, params);
+    } else if (typeof window !== 'undefined') {
+      window.location.href = page === 'home' ? '/' : `/${page}`;
+    }
+  };
 
   useEffect(() => {
-    if (orderId) {
-      api.getOrderById(orderId)
-        .then(res => {
-          if (res.success && res.data) {
-            setOrderData(res.data);
-            if (res.data.order) {
-              trackPurchaseConversion(res.data.order, res.data.items);
-            }
-          }
-        })
-        .finally(() => setLoading(false));
+    const id = orderId || getOrderIdFromUrl();
+    if (!id) {
+      setLoading(false);
+      setError('No order ID provided. Please verify your order link.');
+      return;
     }
+
+    setLoading(true);
+    setError(null);
+
+    api.getOrderById(id)
+      .then(res => {
+        if (res && res.success && res.data && res.data.order) {
+          setOrderData(res.data);
+          trackPurchaseConversion(res.data.order, res.data.items);
+        } else {
+          setError(res?.message || 'Order could not be found.');
+        }
+      })
+      .catch(err => {
+        setError(err.message || 'Unable to retrieve order details.');
+      })
+      .finally(() => setLoading(false));
   }, [orderId]);
 
   if (loading) {
     return (
       <div className="container" style={{ padding: '80px 0', textAlign: 'center' }}>
-        <h3>Loading your confirmed order...</h3>
+        <Clock size={40} style={{ color: 'var(--peanut-gold-700)', marginBottom: '16px', display: 'inline-block' }} />
+        <h3 style={{ color: 'var(--cacao-950)' }}>Loading your confirmed order...</h3>
       </div>
     );
   }
 
   const order = orderData?.order;
   const items = orderData?.items || [];
+  const isCod = String(order?.payment_method || '').toUpperCase() === 'COD';
+  const isPaid = String(order?.payment_status || '').toUpperCase() === 'PAID';
+  const isPaymentFailed = String(order?.payment_status || '').toUpperCase() === 'FAILED' || 
+                          String(order?.order_status || '').toUpperCase() === 'PAYMENT_FAILED';
+  const isCancelled = String(order?.order_status || '').toUpperCase() === 'CANCELLED';
+  const isPendingOnline = !isPaid && !isCod;
+
+  if (error || !order) {
+    return (
+      <div style={{ padding: '60px 0 100px', backgroundColor: 'var(--cream-50)' }}>
+        <div className="container" style={{ maxWidth: '640px' }}>
+          <div style={{
+            backgroundColor: '#FFFFFF',
+            padding: '40px',
+            borderRadius: 'var(--radius-xl)',
+            border: '1.5px solid var(--border-medium)',
+            boxShadow: 'var(--shadow-md)',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              backgroundColor: '#FEE2E2',
+              color: '#DC2626',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '18px'
+            }}>
+              <AlertCircle size={36} />
+            </div>
+            <h2 style={{ fontSize: '1.8rem', color: 'var(--cacao-950)', marginBottom: '10px' }}>
+              Order Not Found
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
+              {error || 'We could not retrieve details for this order. Please verify your order number or tracking link.'}
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button onClick={() => handleNavigate('track_order')} className="btn btn-primary">
+                Track Order
+              </button>
+              <button onClick={() => handleNavigate('home')} className="btn btn-outline">
+                Return Home
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isPaymentFailed || isCancelled) {
+    return (
+      <div style={{ padding: '60px 0 100px', backgroundColor: 'var(--cream-50)' }}>
+        <div className="container" style={{ maxWidth: '640px' }}>
+          <div style={{
+            backgroundColor: '#FFFFFF',
+            padding: '40px',
+            borderRadius: 'var(--radius-xl)',
+            border: '1.5px solid var(--border-medium)',
+            boxShadow: 'var(--shadow-md)',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              backgroundColor: '#FEE2E2',
+              color: '#DC2626',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '18px'
+            }}>
+              <AlertCircle size={36} />
+            </div>
+            <h2 style={{ fontSize: '1.8rem', color: 'var(--cacao-950)', marginBottom: '10px' }}>
+              {isCancelled ? 'Order Cancelled' : 'Payment Not Completed'}
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
+              {isCancelled
+                ? `Order ${order?.order_number || ''} has been cancelled.`
+                : `The payment for order ${order?.order_number || ''} was not completed or failed. No charge was captured.`}
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button onClick={() => handleNavigate('checkout')} className="btn btn-primary">
+                Return to Checkout
+              </button>
+              <button onClick={() => handleNavigate('products')} className="btn btn-outline">
+                Browse Products
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isPendingOnline) {
+    return (
+      <div style={{ padding: '60px 0 100px', backgroundColor: 'var(--cream-50)' }}>
+        <div className="container" style={{ maxWidth: '640px' }}>
+          <div style={{
+            backgroundColor: '#FFFFFF',
+            padding: '40px',
+            borderRadius: 'var(--radius-xl)',
+            border: '1.5px solid var(--border-medium)',
+            boxShadow: 'var(--shadow-md)',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              backgroundColor: '#FEF3C7',
+              color: '#D97706',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '18px'
+            }}>
+              <AlertCircle size={36} />
+            </div>
+            <h2 style={{ fontSize: '1.8rem', color: 'var(--cacao-950)', marginBottom: '10px' }}>
+              Payment Incomplete
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
+              We have not received a confirmed payment for order <strong>{order?.order_number || ''}</strong>.
+            </p>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '24px' }}>
+              Status: <strong>{order?.payment_status}</strong>. If you completed payment via UPI or netbanking, please check your bank account or allow a moment for confirmation.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button onClick={() => handleNavigate('checkout')} className="btn btn-primary">
+                Return to Checkout
+              </button>
+              <button onClick={() => handleNavigate('track_order')} className="btn btn-outline">
+                Track Order
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: '60px 0 100px', backgroundColor: 'var(--cream-50)' }}>
@@ -62,10 +242,10 @@ export default function OrderSuccess({ orderId, onNavigate }) {
           </div>
 
           <h1 style={{ fontSize: '2.2rem', color: 'var(--cacao-950)', marginBottom: '8px' }}>
-            Order Successfully Placed!
+            {isCod && !isPaid ? 'Order Placed (Cash on Delivery)' : 'Order Successfully Placed!'}
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', marginBottom: '16px' }}>
-            Thank you, <strong>{order?.customer_name}</strong>! Your artisanal chocolate batch is being prepared.
+            Thank you, <strong>{order?.customer_name}</strong>! {isCod && !isPaid ? 'Your Cash on Delivery order has been received.' : 'Your artisanal chocolate batch is being prepared.'}
           </p>
 
           <div style={{
@@ -110,8 +290,8 @@ export default function OrderSuccess({ orderId, onNavigate }) {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: order?.payment_status === 'PAID' ? 'var(--success-color)' : 'var(--cream-200)', color: order?.payment_status === 'PAID' ? '#fff' : 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '0.85rem' }}>
-                {order?.payment_status === 'PAID' ? '✓' : '2'}
+              <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: isPaid ? 'var(--success-color)' : 'var(--cream-200)', color: isPaid ? '#fff' : 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '0.85rem' }}>
+                {isPaid ? '✓' : (isCod ? 'COD' : '2')}
               </div>
               <span style={{ fontSize: '0.82rem', fontWeight: '700', marginTop: '8px', color: 'var(--cacao-950)' }}>Payment</span>
               <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{order?.payment_status}</span>
@@ -187,7 +367,7 @@ export default function OrderSuccess({ orderId, onNavigate }) {
               <span>{order?.is_free_delivery ? 'FREE' : `₹${order?.delivery_charge}`}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '800', fontSize: '1.2rem', color: 'var(--cacao-950)', paddingTop: '8px', borderTop: '1px solid var(--border-medium)' }}>
-              <span>Total Paid:</span>
+              <span>{isPaid ? 'Total Paid:' : (isCod ? 'Pay on Delivery:' : 'Total Amount:')}</span>
               <span>₹{order?.total_amount}</span>
             </div>
           </div>
@@ -198,10 +378,10 @@ export default function OrderSuccess({ orderId, onNavigate }) {
           </div>
 
           <div style={{ marginTop: '28px', display: 'flex', gap: '16px', justifyContent: 'center' }}>
-            <button onClick={() => onNavigate('products')} className="btn btn-primary">
+            <button onClick={() => handleNavigate('products')} className="btn btn-primary">
               Continue Shopping
             </button>
-            <button onClick={() => onNavigate('track_order')} className="btn btn-outline">
+            <button onClick={() => handleNavigate('track_order')} className="btn btn-outline">
               Track Another Order
             </button>
           </div>

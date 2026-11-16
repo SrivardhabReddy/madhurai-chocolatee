@@ -23,6 +23,19 @@ export default function App() {
       const path = window.location.pathname;
       if (path === '/' || path === '') {
         setCurrentPage('home');
+      } else if (path.startsWith('/order-success/')) {
+        const orderId = path.replace('/order-success/', '').split('/')[0].split('?')[0];
+        setCurrentPage('order_success');
+        setPageParams({ orderId });
+      } else if (path === '/order-success') {
+        const queryParams = new URLSearchParams(window.location.search);
+        const orderId = queryParams.get('orderId') || queryParams.get('order_id');
+        setCurrentPage('order_success');
+        setPageParams({ orderId: orderId || '' });
+      } else if (path.startsWith('/account/orders/')) {
+        const orderId = path.replace('/account/orders/', '').split('/')[0].split('?')[0];
+        setCurrentPage('order_detail');
+        setPageParams({ orderId });
       } else if (path.startsWith('/products/')) {
         const slug = path.replace('/products/', '');
         setCurrentPage('product_detail');
