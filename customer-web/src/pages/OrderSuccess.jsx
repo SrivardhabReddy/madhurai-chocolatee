@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle2, Clock, MapPin, Truck, ShoppingBag, ArrowRight } from 'lucide-react';
 import { api } from '../services/api.js';
+import { trackPurchaseConversion } from '../utils/gtm.js';
 
 export default function OrderSuccess({ orderId, onNavigate }) {
   const [orderData, setOrderData] = useState(null);
@@ -12,6 +13,9 @@ export default function OrderSuccess({ orderId, onNavigate }) {
         .then(res => {
           if (res.success && res.data) {
             setOrderData(res.data);
+            if (res.data.order) {
+              trackPurchaseConversion(res.data.order, res.data.items);
+            }
           }
         })
         .finally(() => setLoading(false));
