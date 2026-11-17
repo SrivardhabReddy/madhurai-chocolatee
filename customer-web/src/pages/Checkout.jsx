@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, 
-  MapPin, 
   CreditCard, 
   Banknote, 
   QrCode, 
@@ -18,13 +17,13 @@ import {
 import { useCart } from '../context/CartContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { api } from '../services/api.js';
-import DeliveryLocationPicker from '../components/DeliveryLocationPicker.jsx';
 
 export default function Checkout({ onNavigate }) {
   const { cartItems, clearCart, deliveryPincode, setDeliveryPincode, appliedCoupon, setAppliedCoupon, removeCoupon } = useCart();
   const { user, login, register } = useAuth();
 
-  // Quick Inline Checkout Auth State
+  // Optional Inline Sign In State for Guests
+  const [showAuthForm, setShowAuthForm] = useState(false);
   const [authTab, setAuthTab] = useState('LOGIN'); // 'LOGIN' | 'REGISTER'
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
@@ -108,6 +107,7 @@ export default function Checkout({ onNavigate }) {
       if (res && res.success) {
         setAuthSuccess('✓ Signed in successfully!');
         setFormError('');
+        setShowAuthForm(false);
       } else {
         setAuthError(res?.message || 'Invalid email or password.');
       }
@@ -141,6 +141,7 @@ export default function Checkout({ onNavigate }) {
       if (res && res.success) {
         setAuthSuccess('✓ Account registered successfully!');
         setFormError('');
+        setShowAuthForm(false);
       } else {
         setAuthError(res?.message || 'Registration failed.');
       }
@@ -339,19 +340,13 @@ export default function Checkout({ onNavigate }) {
     e.preventDefault();
     setFormError('');
 
-    // Customer must be signed in to process order and payment
-    if (!user) {
-      setFormError('🔒 Please sign in or create an account at Step 1 to process your order and payment.');
+    // Form validation
+    if (!formData.customer_name?.trim() || !formData.customer_email?.trim() || !formData.customer_phone?.trim()) {
+      setFormError('Please enter your full name, email, and mobile number.');
       const contactSection = document.getElementById('step-contact-auth');
       if (contactSection) {
         contactSection.scrollIntoView({ behavior: 'smooth' });
       }
-      return;
-    }
-
-    // Form validation
-    if (!formData.customer_name || !formData.customer_email || !formData.customer_phone) {
-      setFormError('Please enter your full name, email, and mobile number.');
       return;
     }
     if (!formData.house_building || !formData.street || !formData.area || !formData.city || !formData.pincode) {
@@ -528,81 +523,121 @@ export default function Checkout({ onNavigate }) {
             {/* Left Column: Customer Info & Address */}
             <div>
               
-              {/* Step 1: Customer Account & Sign In Requirement */}
+              {/* Step 1: Contact Information */}
               <div id="step-contact-auth" style={{ backgroundColor: '#FFFFFF', padding: '28px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-medium)', marginBottom: '24px', boxShadow: 'var(--shadow-sm)' }}>
-                {!user ? (
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
-                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#B45309', flexShrink: 0 }}>
-                        <Lock size={20} />
-                      </div>
-                      <div>
-                        <h3 style={{ fontSize: '1.25rem', color: 'var(--cacao-950)', margin: '0 0 2px 0' }}>
-                          1. Sign In to Complete Your Order
-                        </h3>
-                        <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
-                          Please sign in or register to complete checkout, save delivery address, and proceed to payment
-                        </span>
-                      </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '50%',
+                      backgroundColor: user ? '#DCFCE7' : 'var(--cream-200)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: user ? '#15803D' : 'var(--cacao-950)'
+                    }}>
+                      {user ? <CheckCircle size={18} /> : <User size={18} />}
                     </div>
+                    <div>
+                      <h3 style={{ fontSize: '1.25rem', color: 'var(--cacao-950)', margin: 0 }}>
+                        1. Contact Information
+                      </h3>
+                      {user ? (
+                        <span style={{ fontSize: '0.8rem', color: '#166534', fontWeight: '600' }}>
+                          ✓ Signed in as {user.full_name || 'Customer'} ({user.email})
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                          We will send your order confirmation and invoice to these details
+                        </span>
+                      )}
+                    </div>
+                  </div>
 
-                    {/* Tab Switcher */}
-                    <div style={{ display: 'flex', gap: '8px', margin: '20px 0 16px 0', borderBottom: '1.5px solid var(--border-medium)', paddingBottom: '12px' }}>
+                  {!user && (
+                    <button
+                      type="button"
+                      onClick={() => { setShowAuthForm(!showAuthForm); setAuthError(''); setAuthSuccess(''); }}
+                      style={{
+                        background: 'none',
+                        border: '1px solid var(--border-medium)',
+                        borderRadius: 'var(--radius-sm)',
+                        padding: '6px 12px',
+                        fontSize: '0.82rem',
+                        fontWeight: '600',
+                        color: 'var(--peanut-gold-700)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {showAuthForm ? '✕ Close Sign In' : 'Already have an account? Sign In'}
+                    </button>
+                  )}
+                </div>
+
+                {/* Optional Inline Sign In / Register Accordion for Guests */}
+                {!user && showAuthForm && (
+                  <div style={{
+                    marginBottom: '20px',
+                    padding: '16px',
+                    backgroundColor: 'var(--cream-100)',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-medium)'
+                  }}>
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
                       <button
                         type="button"
                         onClick={() => { setAuthTab('LOGIN'); setAuthError(''); setAuthSuccess(''); }}
                         style={{
-                          padding: '8px 18px',
+                          padding: '6px 14px',
                           borderRadius: 'var(--radius-sm)',
-                          fontSize: '0.86rem',
+                          fontSize: '0.82rem',
                           fontWeight: '700',
                           cursor: 'pointer',
                           border: 'none',
-                          backgroundColor: authTab === 'LOGIN' ? 'var(--cacao-950)' : '#F1F5F9',
-                          color: authTab === 'LOGIN' ? '#FFFFFF' : 'var(--text-secondary)',
-                          transition: 'var(--transition)'
+                          backgroundColor: authTab === 'LOGIN' ? 'var(--cacao-950)' : '#E2E8F0',
+                          color: authTab === 'LOGIN' ? '#FFFFFF' : 'var(--text-secondary)'
                         }}
                       >
-                        Sign In (Existing Customer)
+                        Sign In
                       </button>
                       <button
                         type="button"
                         onClick={() => { setAuthTab('REGISTER'); setAuthError(''); setAuthSuccess(''); }}
                         style={{
-                          padding: '8px 18px',
+                          padding: '6px 14px',
                           borderRadius: 'var(--radius-sm)',
-                          fontSize: '0.86rem',
+                          fontSize: '0.82rem',
                           fontWeight: '700',
                           cursor: 'pointer',
                           border: 'none',
-                          backgroundColor: authTab === 'REGISTER' ? 'var(--cacao-950)' : '#F1F5F9',
-                          color: authTab === 'REGISTER' ? '#FFFFFF' : 'var(--text-secondary)',
-                          transition: 'var(--transition)'
+                          backgroundColor: authTab === 'REGISTER' ? 'var(--cacao-950)' : '#E2E8F0',
+                          color: authTab === 'REGISTER' ? '#FFFFFF' : 'var(--text-secondary)'
                         }}
                       >
-                        Create New Account
+                        Create Account
                       </button>
                     </div>
 
                     {authError && (
-                      <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-sm)', backgroundColor: '#FEE2E2', color: 'var(--danger-color)', fontSize: '0.84rem', fontWeight: '600', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <AlertCircle size={16} />
+                      <div style={{ padding: '8px 12px', borderRadius: 'var(--radius-sm)', backgroundColor: '#FEE2E2', color: 'var(--danger-color)', fontSize: '0.82rem', fontWeight: '600', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <AlertCircle size={15} />
                         <span>{authError}</span>
                       </div>
                     )}
 
                     {authSuccess && (
-                      <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-sm)', backgroundColor: '#DCFCE7', color: '#15803D', fontSize: '0.84rem', fontWeight: '600', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <CheckCircle size={16} />
+                      <div style={{ padding: '8px 12px', borderRadius: 'var(--radius-sm)', backgroundColor: '#DCFCE7', color: '#15803D', fontSize: '0.82rem', fontWeight: '600', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <CheckCircle size={15} />
                         <span>{authSuccess}</span>
                       </div>
                     )}
 
                     {authTab === 'LOGIN' ? (
                       <div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginBottom: '14px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '12px' }}>
                           <div>
-                            <label className="form-label" style={{ fontSize: '0.82rem' }}>Email Address *</label>
+                            <label className="form-label" style={{ fontSize: '0.8rem' }}>Email Address</label>
                             <input
                               type="email"
                               value={authEmail}
@@ -613,7 +648,7 @@ export default function Checkout({ onNavigate }) {
                           </div>
                           <div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <label className="form-label" style={{ fontSize: '0.82rem', marginBottom: '4px' }}>Password *</label>
+                              <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '4px' }}>Password</label>
                               <button
                                 type="button"
                                 onClick={() => onNavigate('forgot_password')}
@@ -641,22 +676,21 @@ export default function Checkout({ onNavigate }) {
                             </div>
                           </div>
                         </div>
-
                         <button
                           type="button"
                           onClick={handleCheckoutLogin}
                           disabled={authLoading}
                           className="btn btn-primary"
-                          style={{ width: '100%', padding: '12px', fontWeight: '700' }}
+                          style={{ width: '100%', padding: '10px', fontSize: '0.88rem', fontWeight: '700' }}
                         >
-                          {authLoading ? 'Signing In...' : 'Sign In to Proceed with Checkout'}
+                          {authLoading ? 'Signing In...' : 'Sign In'}
                         </button>
                       </div>
                     ) : (
                       <div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginBottom: '12px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '12px' }}>
                           <div>
-                            <label className="form-label" style={{ fontSize: '0.82rem' }}>Full Name *</label>
+                            <label className="form-label" style={{ fontSize: '0.8rem' }}>Full Name</label>
                             <input
                               type="text"
                               value={authName}
@@ -666,7 +700,7 @@ export default function Checkout({ onNavigate }) {
                             />
                           </div>
                           <div>
-                            <label className="form-label" style={{ fontSize: '0.82rem' }}>Mobile Number *</label>
+                            <label className="form-label" style={{ fontSize: '0.8rem' }}>Mobile Number</label>
                             <input
                               type="tel"
                               maxLength={10}
@@ -676,20 +710,18 @@ export default function Checkout({ onNavigate }) {
                               className="form-input"
                             />
                           </div>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginBottom: '14px' }}>
                           <div>
-                            <label className="form-label" style={{ fontSize: '0.82rem' }}>Email Address *</label>
+                            <label className="form-label" style={{ fontSize: '0.8rem' }}>Email Address</label>
                             <input
                               type="email"
                               value={authEmail}
                               onChange={(e) => setAuthEmail(e.target.value)}
-                              placeholder="For order tracking & receipt"
+                              placeholder="name@example.com"
                               className="form-input"
                             />
                           </div>
                           <div>
-                            <label className="form-label" style={{ fontSize: '0.82rem' }}>Create Password *</label>
+                            <label className="form-label" style={{ fontSize: '0.8rem' }}>Create Password</label>
                             <div style={{ position: 'relative' }}>
                               <input
                                 type={showAuthPassword ? 'text' : 'password'}
@@ -709,89 +741,72 @@ export default function Checkout({ onNavigate }) {
                             </div>
                           </div>
                         </div>
-
                         <button
                           type="button"
                           onClick={handleCheckoutRegister}
                           disabled={authLoading}
                           className="btn btn-primary"
-                          style={{ width: '100%', padding: '12px', fontWeight: '700' }}
+                          style={{ width: '100%', padding: '10px', fontSize: '0.88rem', fontWeight: '700' }}
                         >
-                          {authLoading ? 'Creating Account...' : 'Register Account & Continue'}
+                          {authLoading ? 'Creating Account...' : 'Register Account'}
                         </button>
                       </div>
                     )}
                   </div>
-                ) : (
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#DCFCE7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#15803D' }}>
-                          <CheckCircle size={18} />
-                        </div>
-                        <div>
-                          <h3 style={{ fontSize: '1.25rem', color: 'var(--cacao-950)', margin: 0 }}>
-                            1. Contact Information
-                          </h3>
-                          <span style={{ fontSize: '0.8rem', color: '#166534', fontWeight: '600' }}>
-                            ✓ Signed in as {user.full_name || 'Customer'} ({user.email})
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="form-group">
-                      <label className="form-label" htmlFor="customer_name">Full Name *</label>
-                      <input
-                        type="text"
-                        id="customer_name"
-                        name="customer_name"
-                        autoComplete="name"
-                        required
-                        value={formData.customer_name}
-                        onChange={handleInputChange}
-                        placeholder="Enter full name"
-                        className="form-input"
-                      />
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="customer_phone">Mobile Number *</label>
-                        <input
-                          type="tel"
-                          id="customer_phone"
-                          name="customer_phone"
-                          autoComplete="tel"
-                          inputMode="numeric"
-                          required
-                          value={formData.customer_phone}
-                          onChange={handleInputChange}
-                          placeholder="10-digit mobile number"
-                          className="form-input"
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="customer_email">Email Address *</label>
-                        <input
-                          type="email"
-                          id="customer_email"
-                          name="customer_email"
-                          autoComplete="email"
-                          required
-                          value={formData.customer_email}
-                          onChange={handleInputChange}
-                          placeholder="Order confirmation email"
-                          className="form-input"
-                        />
-                      </div>
-                    </div>
-                  </div>
                 )}
+
+                {/* Primary Contact Input Fields */}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="customer_name">Full Name *</label>
+                  <input
+                    type="text"
+                    id="customer_name"
+                    name="customer_name"
+                    autoComplete="name"
+                    required
+                    value={formData.customer_name}
+                    onChange={handleInputChange}
+                    placeholder="Enter full name"
+                    className="form-input"
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="customer_phone">Mobile Number *</label>
+                    <input
+                      type="tel"
+                      id="customer_phone"
+                      name="customer_phone"
+                      autoComplete="tel"
+                      inputMode="numeric"
+                      maxLength={10}
+                      required
+                      value={formData.customer_phone}
+                      onChange={handleInputChange}
+                      placeholder="10-digit mobile number"
+                      className="form-input"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="customer_email">Email Address *</label>
+                    <input
+                      type="email"
+                      id="customer_email"
+                      name="customer_email"
+                      autoComplete="email"
+                      required
+                      value={formData.customer_email}
+                      onChange={handleInputChange}
+                      placeholder="Order confirmation email"
+                      className="form-input"
+                    />
+                  </div>
+                </div>
               </div>
 
-              {/* Step 2: Shipping Address & Interactive GPS Location Mapping */}
+              {/* Step 2: Delivery Address */}
               <div style={{ backgroundColor: '#FFFFFF', padding: '28px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-medium)', marginBottom: '24px', boxShadow: 'var(--shadow-sm)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
                   <h3 style={{ fontSize: '1.25rem', color: 'var(--cacao-950)', margin: 0 }}>
@@ -803,27 +818,6 @@ export default function Checkout({ onNavigate }) {
                     </span>
                   )}
                 </div>
-
-                {/* Live GPS Detection and Manual Pin on Interactive Map */}
-                <DeliveryLocationPicker
-                  currentPincode={formData.pincode}
-                  initialCity={formData.city}
-                  onLocationSelect={(loc) => {
-                    setFormData(prev => ({
-                      ...prev,
-                      pincode: loc.pincode || prev.pincode,
-                      city: loc.city || prev.city,
-                      district: loc.district || prev.district || loc.city,
-                      state: loc.state || prev.state,
-                      area: loc.area ? `${loc.area}` : prev.area,
-                      street: loc.street ? `${loc.street}` : prev.street,
-                      house_building: loc.house_building || prev.house_building
-                    }));
-                    if (loc.pincode) {
-                      setDeliveryPincode(loc.pincode);
-                    }
-                  }}
-                />
 
                 {/* Saved Address Selector for Logged in Users */}
                 {savedAddresses.length > 0 && (
@@ -1330,39 +1324,18 @@ export default function Checkout({ onNavigate }) {
                   </div>
                 )}
 
-                {!user && (
-                  <div style={{
-                    padding: '12px 14px',
-                    backgroundColor: '#FFFBEB',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid #FDE68A',
-                    color: '#92400E',
-                    fontSize: '0.84rem',
-                    fontWeight: '600',
-                    marginBottom: '16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}>
-                    <Lock size={16} color="#D97706" />
-                    <span>Please sign in or create an account at Step 1 to process your order and payment.</span>
-                  </div>
-                )}
-
                 {/* Submit Button */}
                 <button
                   type="submit"
-                  disabled={orderSubmitting || (user && (checkingDelivery || !serviceability?.serviceable))}
+                  disabled={orderSubmitting || checkingDelivery || !serviceability?.serviceable}
                   className="btn btn-gold btn-lg"
                   style={{ width: '100%', padding: '16px' }}
                 >
                   {orderSubmitting 
                     ? 'Processing...' 
-                    : !user
-                      ? '🔒 Sign In to Complete Order & Payment'
-                      : paymentMethod === 'COD' 
-                        ? 'Confirm Cash on Delivery Order' 
-                        : `Pay ₹${finalTotalDisplay.toFixed(2)} with Razorpay`}
+                    : paymentMethod === 'COD' 
+                      ? 'Confirm Cash on Delivery Order' 
+                      : `Pay ₹${finalTotalDisplay.toFixed(2)} with Razorpay`}
                 </button>
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '14px' }}>
