@@ -12,6 +12,7 @@ import { Login, Register, ForgotPassword } from './pages/AuthPages.jsx';
 import Account from './pages/Account.jsx';
 import Articles from './pages/Articles.jsx';
 import { About, Contact, ShippingPolicy, RefundPolicy, PrivacyPolicy, Terms } from './pages/StaticPages.jsx';
+import { trackPageView } from './utils/visitorTracker.js';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
@@ -86,6 +87,11 @@ export default function App() {
     handlePopState();
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  // Track customer storefront visits for live admin analytics
+  useEffect(() => {
+    trackPageView(window.location.pathname);
+  }, [currentPage, pageParams]);
 
   const navigate = (page, params = {}) => {
     setCurrentPage(page);

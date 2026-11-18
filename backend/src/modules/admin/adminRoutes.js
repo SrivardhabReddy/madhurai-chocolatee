@@ -108,9 +108,31 @@ router.get('/dashboard', authenticate, requireRoles('SUPER_ADMIN', 'ADMIN', 'ORD
        ORDER BY p.created_at DESC LIMIT 15`
     );
 
+    // Visitor statistics (How many people have visited)
+    let visitorStats = { total_visits: 0, unique_visitors: 0 };
+    let todayVisitorStats = { today_visits: 0, today_unique_visitors: 0 };
+    try {
+      visitorStats = await get(
+        `SELECT COUNT(*) as total_visits, COUNT(DISTINCT visitor_id) as unique_visitors FROM site_visits`
+      ) || visitorStats;
+
+      todayVisitorStats = await get(
+        `SELECT COUNT(*) as today_visits, COUNT(DISTINCT visitor_id) as today_unique_visitors
+         FROM site_visits
+         WHERE CAST(created_at AS TEXT) LIKE ? OR CAST(created_at AS TEXT) LIKE ?`,
+        [`${istDateString}%`, `${utcDateString}%`]
+      ) || todayVisitorStats;
+    } catch (vErr) {
+      // Fallback
+    }
+
     return res.json({
       success: true,
       data: {
+        totalVisits: parseInt(visitorStats?.total_visits || 0, 10),
+        uniqueVisitors: parseInt(visitorStats?.unique_visitors || 0, 10),
+        todayVisits: parseInt(todayVisitorStats?.today_visits || 0, 10),
+        todayUniqueVisitors: parseInt(todayVisitorStats?.today_unique_visitors || 0, 10),
         todayOrders: parseInt(todayStats?.today_orders || 0, 10),
         todayRevenue: parseFloat(todayStats?.today_revenue || 0),
         todayOnlineRevenue: parseFloat(todayStats?.today_online_revenue || 0),
@@ -198,6 +220,68 @@ router.get('/analytics', authenticate, requireRoles('SUPER_ADMIN', 'ADMIN'), asy
        ORDER BY order_count DESC`
     );
 
+    // Visitor & Traffic Intelligence
+    let visitorOverview = {
+      totalVisits: 0,
+      uniqueVisitors: 0,
+      todayVisits: 0,
+      todayUniqueVisitors: 0,
+      topPages: [],
+      deviceStats: [],
+      recentVisits: []
+    };
+
+    try {
+      const now = new Date();
+      let istDateString = '';
+      try {
+        istDateString = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+      } catch (e) {
+        istDateString = now.toISOString().slice(0, 10);
+      }
+      const utcDateString = now.toISOString().slice(0, 10);
+
+      const vTotals = await get(
+        `SELECT COUNT(*) as total_visits, COUNT(DISTINCT visitor_id) as unique_visitors FROM site_visits`
+      );
+      const vToday = await get(
+        `SELECT COUNT(*) as today_visits, COUNT(DISTINCT visitor_id) as today_unique_visitors
+         FROM site_visits
+         WHERE CAST(created_at AS TEXT) LIKE ? OR CAST(created_at AS TEXT) LIKE ?`,
+        [`${istDateString}%`, `${utcDateString}%`]
+      );
+      const topPages = await all(
+        `SELECT page_path, COUNT(*) as views, COUNT(DISTINCT visitor_id) as visitors
+         FROM site_visits
+         GROUP BY page_path
+         ORDER BY views DESC
+         LIMIT 10`
+      );
+      const deviceStats = await all(
+        `SELECT COALESCE(device_type, 'DESKTOP') as device, COUNT(*) as count
+         FROM site_visits
+         GROUP BY device_type`
+      );
+      const recentVisits = await all(
+        `SELECT id, visitor_id, page_path, page_title, device_type, referrer, created_at
+         FROM site_visits
+         ORDER BY created_at DESC
+         LIMIT 20`
+      );
+
+      visitorOverview = {
+        totalVisits: parseInt(vTotals?.total_visits || 0, 10),
+        uniqueVisitors: parseInt(vTotals?.unique_visitors || 0, 10),
+        todayVisits: parseInt(vToday?.today_visits || 0, 10),
+        todayUniqueVisitors: parseInt(vToday?.today_unique_visitors || 0, 10),
+        topPages: topPages || [],
+        deviceStats: deviceStats || [],
+        recentVisits: recentVisits || []
+      };
+    } catch (vErr) {
+      // Graceful fallback
+    }
+
     return res.json({
       success: true,
       data: {
@@ -205,7 +289,8 @@ router.get('/analytics', authenticate, requireRoles('SUPER_ADMIN', 'ADMIN'), asy
         topProducts,
         paymentMethods,
         orderStatuses,
-        zonePerformance
+        zonePerformance,
+        visitorOverview
       }
     });
   } catch (err) {

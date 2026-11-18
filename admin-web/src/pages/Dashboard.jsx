@@ -15,6 +15,7 @@ import {
   Edit2,
   RefreshCw,
   Eye,
+  Users,
   MapPin,
   X
 } from 'lucide-react';
@@ -186,6 +187,14 @@ export default function Dashboard({ onNavigate }) {
       icon: Package, 
       color: '#0891B2', 
       bg: '#ECFEFF' 
+    },
+    { 
+      label: 'People Visited', 
+      val: (metrics?.uniqueVisitors || 0).toLocaleString('en-IN'), 
+      sub: `${metrics?.todayUniqueVisitors || 0} visited today • ${(metrics?.totalVisits || 0).toLocaleString('en-IN')} views`,
+      icon: Users, 
+      color: '#4F46E5', 
+      bg: '#EEF2FF' 
     },
     { 
       label: 'Pending Payments', 
@@ -364,6 +373,74 @@ export default function Dashboard({ onNavigate }) {
             ) : (
               <div style={{ padding: '30px', textAlign: 'center', color: 'var(--admin-text-muted)' }}>
                 Waiting for completed customer transactions...
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Store Visitor Traffic & Popular Pages */}
+        <div className="admin-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+            <div>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: '700', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Users size={18} style={{ color: '#4F46E5' }} />
+                <span>Store Visitor Traffic</span>
+              </h3>
+              <span style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted)' }}>Real-time customer traffic and popular pages</span>
+            </div>
+            {onNavigate && (
+              <button
+                type="button"
+                onClick={() => onNavigate('analytics')}
+                style={{ background: 'none', border: 'none', color: '#4F46E5', fontSize: '0.78rem', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+              >
+                <span>Full Analytics</span>
+                <ArrowRight size={13} />
+              </button>
+            )}
+          </div>
+
+          {/* Quick Metrics Bar */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '16px' }}>
+            <div style={{ padding: '10px', backgroundColor: '#EEF2FF', borderRadius: '8px', textAlign: 'center' }}>
+              <div style={{ fontSize: '0.7rem', color: '#4338CA', fontWeight: '700', textTransform: 'uppercase' }}>People</div>
+              <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#312E81', marginTop: '2px' }}>
+                {metrics?.uniqueVisitors ?? 0}
+              </div>
+            </div>
+            <div style={{ padding: '10px', backgroundColor: '#ECFDF5', borderRadius: '8px', textAlign: 'center' }}>
+              <div style={{ fontSize: '0.7rem', color: '#047857', fontWeight: '700', textTransform: 'uppercase' }}>Today</div>
+              <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#065F46', marginTop: '2px' }}>
+                {metrics?.todayUniqueVisitors ?? 0}
+              </div>
+            </div>
+            <div style={{ padding: '10px', backgroundColor: '#F8FAFC', borderRadius: '8px', textAlign: 'center', border: '1px solid #E2E8F0' }}>
+              <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: '700', textTransform: 'uppercase' }}>Views</div>
+              <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#1E293B', marginTop: '2px' }}>
+                {metrics?.totalVisits ?? 0}
+              </div>
+            </div>
+          </div>
+
+          {/* Top Visited Pages */}
+          <div style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--admin-text-main)', marginBottom: '8px' }}>
+            Most Visited Pages:
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {(analytics?.visitorOverview?.topPages && analytics.visitorOverview.topPages.length > 0) ? (
+              analytics.visitorOverview.topPages.slice(0, 4).map((p, idx) => (
+                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', backgroundColor: '#F8FAFC', borderRadius: '6px', fontSize: '0.78rem' }}>
+                  <span style={{ color: 'var(--admin-text-main)', fontWeight: '600', fontFamily: 'monospace', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {p.page_path === '/' ? '/ (Home)' : p.page_path}
+                  </span>
+                  <span style={{ color: 'var(--admin-text-muted)' }}>
+                    <strong>{p.views}</strong> views ({p.visitors} visitors)
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div style={{ fontSize: '0.76rem', color: 'var(--admin-text-muted)', textAlign: 'center', padding: '12px' }}>
+                Tracking live visitor pageviews...
               </div>
             )}
           </div>

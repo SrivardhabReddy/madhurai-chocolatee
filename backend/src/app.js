@@ -19,6 +19,7 @@ import paymentRoutes, { createOrderHandler, verifyPaymentHandler } from './modul
 import inventoryRoutes from './modules/inventory/inventoryRoutes.js';
 import adminRoutes from './modules/admin/adminRoutes.js';
 import articleRoutes from './modules/articles/articleRoutes.js';
+import analyticsRoutes from './modules/analytics/analyticsRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -83,6 +84,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/admin/inventory', inventoryRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/articles', articleRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Serve Frontend SPAs if built in dist
 const customerDist = path.resolve(__dirname, '../../customer-web/dist');

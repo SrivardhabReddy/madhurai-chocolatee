@@ -390,6 +390,20 @@ CREATE TABLE IF NOT EXISTS articles (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 27. Site Visits & Visitor Analytics
+CREATE TABLE IF NOT EXISTS site_visits (
+    id TEXT PRIMARY KEY,
+    visitor_id TEXT NOT NULL,
+    session_id TEXT,
+    page_path TEXT NOT NULL DEFAULT '/',
+    page_title TEXT,
+    referrer TEXT,
+    user_agent TEXT,
+    device_type TEXT DEFAULT 'DESKTOP',
+    ip_address TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for lightning fast queries
 CREATE INDEX IF NOT EXISTS idx_products_slug ON products(slug);
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
@@ -403,3 +417,6 @@ CREATE INDEX IF NOT EXISTS idx_coupons_code ON coupons(code);
 CREATE INDEX IF NOT EXISTS idx_payments_order ON payments(order_id);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_articles_slug ON articles(slug);
+CREATE INDEX IF NOT EXISTS idx_site_visits_created ON site_visits(created_at);
+CREATE INDEX IF NOT EXISTS idx_site_visits_visitor ON site_visits(visitor_id);
+CREATE INDEX IF NOT EXISTS idx_site_visits_page ON site_visits(page_path);
