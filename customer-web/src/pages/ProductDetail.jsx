@@ -114,6 +114,15 @@ export default function ProductDetail({ slug, id, onNavigate }) {
   const perPiecePrice = product.pieces_per_pack > 1 ? (product.selling_price / product.pieces_per_pack).toFixed(1) : null;
   const inStock = product.stock > 0;
 
+  // Authentic Image Gallery: Chocolate bite & crunchy PB filling, 40-piece box, and product packaging
+  const defaultGallery = [
+    { image_url: '/chocolate-crunch-pb.jpg', label: 'Crunchy PB Center' },
+    { image_url: '/madhurai-pack-box.jpg', label: '320g Pack Box' },
+    { image_url: product.image_url || '/uploads/img_1792819113635_kijy.png', label: 'Artisanal Box' }
+  ];
+  const galleryImages = (product.images && product.images.length > 1) ? product.images : defaultGallery;
+  const activeImage = selectedImage || galleryImages[0].image_url;
+
   const handleAddToCart = () => {
     addItem(product, quantity);
     setAddedToast(true);
@@ -141,8 +150,8 @@ export default function ProductDetail({ slug, id, onNavigate }) {
         {/* Product Showcase Layout */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
-          gap: '48px',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gap: '40px',
           alignItems: 'flex-start',
           marginBottom: '60px'
         }}>
@@ -158,10 +167,10 @@ export default function ProductDetail({ slug, id, onNavigate }) {
               boxShadow: 'var(--shadow-md)',
               position: 'relative',
               marginBottom: '16px',
-              paddingTop: '90%'
+              paddingTop: '85%'
             }}>
               <img
-                src={selectedImage}
+                src={activeImage}
                 alt={product.name}
                 onError={(e) => {
                   e.currentTarget.onerror = null;
@@ -184,60 +193,73 @@ export default function ProductDetail({ slug, id, onNavigate }) {
             </div>
 
             {/* Thumbnail Row */}
-            {product.images && product.images.length > 1 && (
-              <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '8px' }}>
-                {product.images.map((img, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setSelectedImage(img.image_url)}
-                    style={{
-                      width: '80px',
-                      height: '80px',
-                      borderRadius: 'var(--radius-sm)',
-                      overflow: 'hidden',
-                      border: selectedImage === img.image_url ? '2px solid var(--peanut-gold-600)' : '1px solid var(--border-medium)',
-                      padding: 0,
-                      flexShrink: 0,
-                      opacity: selectedImage === img.image_url ? 1 : 0.7
+            <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '8px' }}>
+              {galleryImages.map((img, i) => (
+                <button
+                  key={i}
+                  onClick={() => setSelectedImage(img.image_url)}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px',
+                    borderRadius: 'var(--radius-sm)',
+                    overflow: 'hidden',
+                    border: activeImage === img.image_url ? '2px solid var(--peanut-gold-600)' : '1px solid var(--border-medium)',
+                    padding: '4px',
+                    backgroundColor: '#FFFFFF',
+                    flexShrink: 0,
+                    cursor: 'pointer',
+                    opacity: activeImage === img.image_url ? 1 : 0.7,
+                    transition: 'var(--transition)'
+                  }}
+                  title={img.label || 'View image'}
+                >
+                  <img
+                    src={img.image_url}
+                    alt={img.label || product.name}
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = '/chocolate-crunch-pb.jpg';
                     }}
-                  >
-                    <img
-                      src={img.image_url}
-                      alt=""
-                      onError={(e) => {
-                        e.currentTarget.onerror = null;
-                        e.currentTarget.src = '/chocolate-crunch-pb.jpg';
-                      }}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
+                    style={{ width: '74px', height: '74px', objectFit: 'cover', borderRadius: '4px' }}
+                  />
+                  {img.label && (
+                    <span style={{ fontSize: '0.7rem', color: 'var(--cacao-900)', fontWeight: 600 }}>
+                      {img.label}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Right: Product Info & Commerce Engine */}
           <div>
             
             <span style={{ fontSize: '0.84rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--peanut-gold-700)' }}>
-              {product.category_name || 'Artisanal Selection'}
+              {product.category_name || 'Signature Creation'}
             </span>
 
             <h1 style={{ fontSize: 'clamp(2rem, 3.5vw, 2.6rem)', color: 'var(--cacao-950)', margin: '8px 0 16px', lineHeight: '1.2' }}>
               {product.name}
             </h1>
 
-            {/* Quality & Craftsmanship Indicator */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', gap: '2px', color: 'var(--peanut-gold-500)' }}>
-                {[...Array(5)].map((_, i) => <Star key={i} size={18} fill="var(--peanut-gold-500)" />)}
-              </div>
-              <span style={{ fontSize: '0.88rem', fontWeight: '700', color: 'var(--cacao-900)' }}>Artisanal Selection</span>
-              <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>• Handcrafted Quality</span>
+            {/* Genuine Trust & Origin Badges */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', marginBottom: '20px' }}>
+              <span className="badge badge-dark" style={{ fontSize: '0.78rem', padding: '5px 10px' }}>
+                Handcrafted in Gudur, AP
+              </span>
+              <span className="badge badge-green" style={{ fontSize: '0.78rem', padding: '5px 10px' }}>
+                FSSAI Lic: 2018 2629000442
+              </span>
+              <span className="badge badge-gold" style={{ fontSize: '0.78rem', padding: '5px 10px' }}>
+                Zero-Melt Cold-Pack Transit
+              </span>
             </div>
 
             {/* Specs Pills */}
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '20px' }}>
               <span className="badge badge-dark" style={{ fontSize: '0.82rem', padding: '6px 12px' }}>
                 Weight: {product.weight}
               </span>
@@ -246,7 +268,7 @@ export default function ProductDetail({ slug, id, onNavigate }) {
               </span>
               {perPiecePrice && (
                 <span className="badge badge-green" style={{ fontSize: '0.82rem', padding: '6px 12px' }}>
-                  ₹{perPiecePrice} per piece
+                  Just ₹{perPiecePrice} per bite!
                 </span>
               )}
             </div>
@@ -449,10 +471,35 @@ export default function ProductDetail({ slug, id, onNavigate }) {
           {activeTab === 'ingredients' && (
             <div style={{ maxWidth: '800px', fontSize: '1rem', lineHeight: '1.8', color: 'var(--text-secondary)' }}>
               <div style={{ backgroundColor: 'var(--cream-50)', padding: '24px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-medium)' }}>
-                <h4 style={{ color: 'var(--cacao-950)', marginBottom: '8px' }}>Complete Ingredients:</h4>
-                <p style={{ marginBottom: '16px' }}>{product.ingredients || 'Dark Cocoa Solids, Roasted Peanuts, Sugar, Vegetable Fat, Natural Vanilla Extract. (0% Palm Oil & Zero Trans Fat)'}</p>
-                <div style={{ color: 'var(--danger-color)', fontWeight: '600', fontSize: '0.9rem' }}>
-                  ⚠️ Allergen Advice: Contains Peanuts and Dairy. Handcrafted in a dedicated nut facility in Gudur, Andhra Pradesh.
+                <h4 style={{ color: 'var(--cacao-950)', marginBottom: '12px' }}>Verified Ingredients List:</h4>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '18px' }}>
+                  {['Cocoa Powder', 'Roasted Peanuts', 'Peanut Butter', 'Vegetable Fat (0% Palm Oil)', 'Milk Powders', 'Sugar', 'Sugar Syrup', 'Vanilla Essence', 'Sea Salt'].map((item, idx) => (
+                    <span key={idx} style={{
+                      backgroundColor: '#FFFFFF',
+                      border: '1px solid var(--border-medium)',
+                      padding: '6px 12px',
+                      borderRadius: 'var(--radius-full)',
+                      fontSize: '0.86rem',
+                      fontWeight: 600,
+                      color: 'var(--cacao-950)'
+                    }}>
+                      ✓ {item}
+                    </span>
+                  ))}
+                </div>
+                <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '14px' }}>
+                  Handcrafted using quality vegetable fat. Strictly zero liquid palm oil and zero trans fat for a pure, silky melt.
+                </p>
+                <div style={{
+                  padding: '10px 14px',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: '#FEF3C7',
+                  border: '1px solid #FCD34D',
+                  color: '#92400E',
+                  fontWeight: 600,
+                  fontSize: '0.86rem'
+                }}>
+                  ⚠️ Allergen Information: Contains Peanuts and Dairy. Handcrafted in our dedicated facility in Gudur, Andhra Pradesh.
                 </div>
               </div>
             </div>
@@ -460,38 +507,69 @@ export default function ProductDetail({ slug, id, onNavigate }) {
 
           {/* Nutrition Tab Content */}
           {activeTab === 'nutrition' && (
-            <div style={{ maxWidth: '600px' }}>
+            <div style={{ maxWidth: '640px' }}>
               <div style={{ backgroundColor: 'var(--cream-50)', padding: '24px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-medium)' }}>
-                <h4 style={{ color: 'var(--cacao-950)', marginBottom: '4px' }}>Nutritional Information</h4>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <h4 style={{ color: 'var(--cacao-950)', margin: 0 }}>Nutritional Information</h4>
+                  <span className="badge badge-dark" style={{ fontSize: '0.74rem' }}>FSSAI Tested</span>
+                </div>
                 <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)', display: 'block', marginBottom: '16px' }}>
-                  Serving Size: {product.nutrition_data?.serving_size || '1 piece (12.5g)'}
+                  Values per 100g & per piece (~8g bite)
                 </span>
 
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.92rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid var(--border-medium)', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                      <th style={{ padding: '8px 0' }}>Nutrient</th>
+                      <th style={{ padding: '8px 0', textAlign: 'right' }}>Per 100g</th>
+                      <th style={{ padding: '8px 0', textAlign: 'right' }}>Per Piece (~8g)</th>
+                    </tr>
+                  </thead>
                   <tbody>
-                    <tr style={{ borderBottom: '1px solid var(--border-medium)', padding: '8px 0' }}>
-                      <td style={{ padding: '8px 0', fontWeight: '600' }}>Energy / Calories</td>
-                      <td style={{ padding: '8px 0', textAlign: 'right', fontWeight: '700' }}>{product.nutrition_data?.calories || '68 kcal'}</td>
+                    <tr style={{ borderBottom: '1px solid var(--border-medium)' }}>
+                      <td style={{ padding: '10px 0', fontWeight: '600' }}>Energy / Calories</td>
+                      <td style={{ padding: '10px 0', textAlign: 'right', fontWeight: '700' }}>526 kcal</td>
+                      <td style={{ padding: '10px 0', textAlign: 'right', color: 'var(--peanut-gold-700)', fontWeight: '700' }}>~42 kcal</td>
                     </tr>
                     <tr style={{ borderBottom: '1px solid var(--border-medium)' }}>
                       <td style={{ padding: '8px 0', fontWeight: '600' }}>Protein</td>
-                      <td style={{ padding: '8px 0', textAlign: 'right' }}>{product.nutrition_data?.protein || '2.2g'}</td>
-                    </tr>
-                    <tr style={{ borderBottom: '1px solid var(--border-medium)' }}>
-                      <td style={{ padding: '8px 0', fontWeight: '600' }}>Total Fat</td>
-                      <td style={{ padding: '8px 0', textAlign: 'right' }}>{product.nutrition_data?.total_fat || '4.6g'}</td>
+                      <td style={{ padding: '8px 0', textAlign: 'right' }}>9.2g</td>
+                      <td style={{ padding: '8px 0', textAlign: 'right' }}>~0.74g</td>
                     </tr>
                     <tr style={{ borderBottom: '1px solid var(--border-medium)' }}>
                       <td style={{ padding: '8px 0', fontWeight: '600' }}>Carbohydrates</td>
-                      <td style={{ padding: '8px 0', textAlign: 'right' }}>{product.nutrition_data?.carbohydrates || '5.1g'}</td>
+                      <td style={{ padding: '8px 0', textAlign: 'right' }}>58g</td>
+                      <td style={{ padding: '8px 0', textAlign: 'right' }}>~4.64g</td>
                     </tr>
                     <tr style={{ borderBottom: '1px solid var(--border-medium)' }}>
-                      <td style={{ padding: '8px 0', fontWeight: '600' }}>Dietary Fiber</td>
-                      <td style={{ padding: '8px 0', textAlign: 'right' }}>{product.nutrition_data?.dietary_fiber || '0.8g'}</td>
+                      <td style={{ padding: '8px 0', paddingLeft: '12px', color: 'var(--text-secondary)' }}>• Total Sugars</td>
+                      <td style={{ padding: '8px 0', textAlign: 'right' }}>48.5g</td>
+                      <td style={{ padding: '8px 0', textAlign: 'right' }}>~3.88g</td>
+                    </tr>
+                    <tr style={{ borderBottom: '1px solid var(--border-medium)' }}>
+                      <td style={{ padding: '8px 0', paddingLeft: '12px', color: 'var(--text-secondary)' }}>• Added Sugars</td>
+                      <td style={{ padding: '8px 0', textAlign: 'right' }}>44.5g</td>
+                      <td style={{ padding: '8px 0', textAlign: 'right' }}>~3.56g</td>
+                    </tr>
+                    <tr style={{ borderBottom: '1px solid var(--border-medium)' }}>
+                      <td style={{ padding: '8px 0', fontWeight: '600' }}>Total Fats</td>
+                      <td style={{ padding: '8px 0', textAlign: 'right' }}>29.5g</td>
+                      <td style={{ padding: '8px 0', textAlign: 'right' }}>~2.36g</td>
+                    </tr>
+                    <tr style={{ borderBottom: '1px solid var(--border-medium)' }}>
+                      <td style={{ padding: '8px 0', paddingLeft: '12px', color: 'var(--text-secondary)' }}>• Saturated Fat</td>
+                      <td style={{ padding: '8px 0', textAlign: 'right' }}>19.6g</td>
+                      <td style={{ padding: '8px 0', textAlign: 'right' }}>~1.57g</td>
+                    </tr>
+                    <tr style={{ borderBottom: '1px solid var(--border-medium)' }}>
+                      <td style={{ padding: '8px 0', paddingLeft: '12px', color: 'var(--text-secondary)' }}>• Trans Fat</td>
+                      <td style={{ padding: '8px 0', textAlign: 'right', color: 'var(--success-color)', fontWeight: 600 }}>0.1g</td>
+                      <td style={{ padding: '8px 0', textAlign: 'right', color: 'var(--success-color)' }}>&lt; 0.01g</td>
                     </tr>
                     <tr>
                       <td style={{ padding: '8px 0', fontWeight: '600' }}>Sodium</td>
-                      <td style={{ padding: '8px 0', textAlign: 'right' }}>{product.nutrition_data?.sodium || '18mg'}</td>
+                      <td style={{ padding: '8px 0', textAlign: 'right' }}>110mg</td>
+                      <td style={{ padding: '8px 0', textAlign: 'right' }}>~8.8mg</td>
                     </tr>
                   </tbody>
                 </table>
@@ -502,6 +580,58 @@ export default function ProductDetail({ slug, id, onNavigate }) {
         </div>
 
       </div>
+
+      {/* Mobile Sticky Buy Bar for 1-Tap Purchase */}
+      {inStock && (
+        <div className="mobile-sticky-bar" style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          backgroundColor: '#FFFFFF',
+          padding: '12px 18px',
+          boxShadow: '0 -4px 20px rgba(18, 9, 5, 0.15)',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          zIndex: 980,
+          borderTop: '1px solid var(--border-medium)'
+        }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+              <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--cacao-950)' }}>
+                ₹{product.selling_price}
+              </span>
+              {product.mrp > product.selling_price && (
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
+                  ₹{product.mrp}
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize: '0.74rem', color: 'var(--peanut-gold-700)', fontWeight: 700 }}>
+              {product.weight} • {product.pieces_per_pack} pieces
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={handleAddToCart}
+              className="btn btn-primary"
+              style={{ padding: '10px 14px', fontSize: '0.85rem' }}
+              aria-label="Add product to cart"
+            >
+              <ShoppingBag size={16} />
+              <span>Add</span>
+            </button>
+            <button
+              onClick={handleBuyNow}
+              className="btn btn-gold"
+              style={{ padding: '10px 18px', fontSize: '0.85rem' }}
+              aria-label="Buy product now"
+            >
+              <span>Buy Now</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

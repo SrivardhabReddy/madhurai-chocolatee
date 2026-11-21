@@ -1,6 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <!-- Google tag (gtag.js) - Google Analytics 4 -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-14EJ4DQB46"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      window.gtag = gtag;
+      gtag('js', new Date());
+      gtag('config', 'G-14EJ4DQB46', {
+        send_page_view: true
+      });
+    </script>
+
     <!-- Google Tag Manager -->
     <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
     new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
@@ -14,17 +26,86 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
     <!-- SEO Meta Tags -->
-    <title>Madhurai Chocolate — Handcrafted South Indian Artisanal Chocolates</title>
-    <meta name="description" content="Discover Madhurai Chocolate: legendary Chocolate Crunch Peanut Butter Inside handcrafted with roasted South Indian peanuts and pure artisanal dark cacao. Free delivery on orders above ₹500 across India." />
-    <meta name="keywords" content="Madhurai Chocolate, Peanut butter chocolate, Chocolate Crunch Peanut Butter Inside, Indian artisanal chocolate, luxury chocolate gift boxes" />
-    <link rel="canonical" href="https://madhuraichocolates.in" />
+    <title>Madhurai Chocolates — Handcrafted Peanut Butter Chocolates</title>
+    <meta name="description" content="Discover Madhurai Chocolates: rich chocolate moments made more delicious with crunchy peanut butter filling. 40 pieces per handcrafted box. Free cold-pack delivery across India." />
+    <meta name="keywords" content="Peanut butter chocolates, Chocolate gifts, Handmade chocolates, Chocolate bites, Madhurai Chocolates, artisanal chocolates India" />
+    <link rel="canonical" href="https://madhuraichocolates.in/" />
     
-    <!-- Open Graph & Social Cards -->
-    <meta property="og:title" content="Madhurai Chocolate — Handcrafted Artisanal Chocolates" />
-    <meta property="og:description" content="Pure dark chocolate bite filled with creamy roasted peanut butter and crunchy peanut nibs. Order freshly made boxes online." />
-    <meta property="og:image" content="/chocolate-crunch-pb.jpg" />
+    <!-- Open Graph & Social Cards (Absolute URLs for WhatsApp, Instagram, Facebook previews) -->
+    <meta property="og:site_name" content="Madhurai Chocolates" />
+    <meta property="og:title" content="Madhurai Chocolates — Chocolate Moments, Made More Delicious" />
+    <meta property="og:description" content="Discover rich chocolate with delicious crunchy peanut butter filling. 40 pieces per handcrafted box. Order online with cold-pack delivery." />
+    <meta property="og:image" content="https://madhuraichocolates.in/chocolate-crunch-pb.jpg" />
+    <meta property="og:image:secure_url" content="https://madhuraichocolates.in/chocolate-crunch-pb.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:url" content="https://madhuraichocolates.in/" />
     <meta property="og:type" content="website" />
+    
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Madhurai Chocolates — Chocolate Moments, Made More Delicious" />
+    <meta name="twitter:description" content="Discover rich chocolate with delicious crunchy peanut butter filling. 40 pieces per handcrafted box. Order online." />
+    <meta name="twitter:image" content="https://madhuraichocolates.in/chocolate-crunch-pb.jpg" />
+
+    <!-- Schema.org JSON-LD Structured Data for Organization and Product -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://madhuraichocolates.in/#organization",
+          "name": "Madhurai Chocolates",
+          "url": "https://madhuraichocolates.in/",
+          "logo": "https://madhuraichocolates.in/chocolate-crunch-pb.jpg",
+          "description": "Handcrafted South Indian chocolates filled with crunchy roasted peanut butter.",
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "Gudur",
+            "addressLocality": "Gudur",
+            "addressRegion": "Andhra Pradesh",
+            "postalCode": "524101",
+            "addressCountry": "IN"
+          },
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "telephone": "+91-96768-23113",
+            "contactType": "customer service",
+            "areaServed": "IN",
+            "availableLanguage": ["English", "Telugu", "Hindi"]
+          }
+        },
+        {
+          "@type": "Product",
+          "@id": "https://madhuraichocolates.in/#product",
+          "name": "MADHURAI mini bites",
+          "description": "The real love of crunchy peanut butter is filled inside the chocolate it makes lava inside in your mouth. 40 pieces per 320g box.",
+          "image": [
+            "https://madhuraichocolates.in/chocolate-crunch-pb.jpg",
+            "https://madhuraichocolates.in/madhurai-pack-box.jpg"
+          ],
+          "brand": {
+            "@type": "Brand",
+            "name": "Madhurai Chocolates"
+          },
+          "sku": "MC-MINI-BITES-320G",
+          "offers": {
+            "@type": "Offer",
+            "url": "https://madhuraichocolates.in/products/madhurai-mini-bites",
+            "priceCurrency": "INR",
+            "price": "190",
+            "priceValidUntil": "2027-12-31",
+            "itemCondition": "https://schema.org/NewCondition",
+            "availability": "https://schema.org/InStock",
+            "seller": {
+              "@id": "https://madhuraichocolates.in/#organization"
+            }
+          }
+        }
+      ]
+    }
+    </script>
     
     <!-- Google Fonts: Plus Jakarta Sans & Playfair Display -->
     <link rel="preconnect" href="https://fonts.googleapis.com">

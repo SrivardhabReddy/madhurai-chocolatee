@@ -31,7 +31,7 @@ export default function Footer({ onNavigate }) {
             </div>
             <div>
               <h4 style={{ color: '#FFFFFF', fontSize: '0.98rem', marginBottom: '2px' }}>FSSAI Certified</h4>
-              <p style={{ fontSize: '0.82rem', color: 'var(--cream-300)' }}>Lic No. 12423008000451</p>
+              <p style={{ fontSize: '0.82rem', color: 'var(--cream-300)' }}>Lic No. 2018 2629000442</p>
             </div>
           </div>
 
@@ -86,8 +86,8 @@ export default function Footer({ onNavigate }) {
                 </button>
               </li>
               <li>
-                <button onClick={() => onNavigate('product_detail', { slug: 'chocolate-crunch-peanut-butter-inside' })} style={{ color: 'var(--peanut-gold-400)', fontWeight: '600' }}>
-                  Peanut Butter Crunch 500g
+                <button onClick={() => onNavigate('product_detail', { slug: 'madhurai-mini-bites' })} style={{ color: 'var(--peanut-gold-400)', fontWeight: '600' }}>
+                  MADHURAI mini bites (320g Box)
                 </button>
               </li>
               <li>

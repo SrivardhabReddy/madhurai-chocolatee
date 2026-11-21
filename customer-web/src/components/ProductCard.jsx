@@ -1,14 +1,28 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Heart, ShoppingBag, Check } from 'lucide-react';
 import { useCart } from '../context/CartContext.jsx';
 
 export default function ProductCard({ product, onNavigate }) {
   const { addItem, toggleWishlist, isWishlisted } = useCart();
   const wishlisted = isWishlisted(product.id);
+  const [justAdded, setJustAdded] = useState(false);
 
   const primaryImage = product.primary_image?.image_url || product.image_url || product.images?.[0]?.image_url || '/chocolate-crunch-pb.jpg';
   const perPiecePrice = product.pieces_per_pack > 1 ? (product.selling_price / product.pieces_per_pack).toFixed(1) : null;
   const inStock = product.stock > 0;
+
+  const handleAdd = (e) => {
+    e.stopPropagation();
+    addItem(product, 1);
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 2200);
+  };
+
+  const handleQuickBuy = (e) => {
+    e.stopPropagation();
+    addItem(product, 1);
+    onNavigate('checkout');
+  };
 
   return (
     <div className="card" style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
@@ -158,17 +172,32 @@ export default function ProductCard({ product, onNavigate }) {
           )}
         </div>
 
-        {/* Action Button */}
+        {/* Action Buttons */}
         <div>
           {inStock ? (
-            <button
-              onClick={() => addItem(product, 1)}
-              className="btn btn-primary"
-              style={{ width: '100%', padding: '10px 16px', fontSize: '0.9rem' }}
-            >
-              <ShoppingBag size={16} />
-              <span>Add to Cart</span>
-            </button>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <button
+                onClick={handleAdd}
+                className="btn btn-primary"
+                style={{
+                  padding: '10px 10px',
+                  fontSize: '0.85rem',
+                  backgroundColor: justAdded ? 'var(--success-color)' : undefined
+                }}
+                aria-label={`Add ${product.name} to cart`}
+              >
+                {justAdded ? <Check size={16} /> : <ShoppingBag size={16} />}
+                <span>{justAdded ? 'Added' : 'Add'}</span>
+              </button>
+              <button
+                onClick={handleQuickBuy}
+                className="btn btn-gold"
+                style={{ padding: '10px 10px', fontSize: '0.85rem' }}
+                aria-label={`Buy ${product.name} now`}
+              >
+                <span>Buy Now</span>
+              </button>
+            </div>
           ) : (
             <button
               disabled

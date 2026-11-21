@@ -107,61 +107,95 @@ export default function Analytics() {
             </div>
 
             {/* Split: Top Visited Pages & Device Distribution */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
               <div>
-                <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', marginBottom: '10px' }}>
-                  📄 Most Visited Pages
-                </h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b', margin: 0 }}>
+                    📄 Page Views (Separately Per Page)
+                  </h3>
+                  <span style={{ fontSize: '12px', color: '#64748b' }}>
+                    Pageviews vs Unique Visitors
+                  </span>
+                </div>
                 {data.visitorOverview?.topPages?.length > 0 ? (
                   <table className="admin-table" style={{ fontSize: '13px' }}>
                     <thead>
                       <tr>
-                        <th>Page Route</th>
+                        <th>Page & Route</th>
                         <th style={{ textAlign: 'right' }}>Total Views</th>
                         <th style={{ textAlign: 'right' }}>Unique People</th>
+                        <th style={{ textAlign: 'right' }}>% Traffic</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {data.visitorOverview.topPages.map((tp, idx) => (
-                        <tr key={idx}>
-                          <td>
-                            <code style={{ fontSize: '12px', color: '#1e293b' }}>
-                              {tp.page_path === '/' ? '/ (Homepage)' : tp.page_path}
-                            </code>
-                          </td>
-                          <td style={{ textAlign: 'right', fontWeight: '700', color: '#059669' }}>
-                            {tp.views}
-                          </td>
-                          <td style={{ textAlign: 'right', color: '#64748b' }}>
-                            {tp.visitors}
-                          </td>
-                        </tr>
-                      ))}
+                      {data.visitorOverview.topPages.map((tp, idx) => {
+                        const totalAllViews = data.visitorOverview.totalVisits || 1;
+                        const pct = Math.round(((tp.views || 0) / totalAllViews) * 100);
+
+                        const formatTitle = (path) => {
+                          if (!path || path === '/') return '🏠 Homepage (/)';
+                          if (path === '/products') return '🍫 Catalog (/products)';
+                          if (path.includes('madhurai-mini-bites') || path.includes('peanut-butter') || path.includes('badabites')) return '🍬 Product (' + path + ')';
+                          if (path === '/cart') return '🛍️ Shopping Bag (/cart)';
+                          if (path === '/checkout') return '💳 Checkout (/checkout)';
+                          if (path.startsWith('/order-success')) return '✅ Order Success (' + path.split('?')[0] + ')';
+                          if (path === '/track-order') return '🚚 Track Order (/track-order)';
+                          return path;
+                        };
+
+                        return (
+                          <tr key={idx}>
+                            <td>
+                              <div style={{ fontWeight: '600', color: '#1e293b' }}>
+                                {formatTitle(tp.page_path)}
+                              </div>
+                              <code style={{ fontSize: '11px', color: '#64748b' }}>
+                                {tp.page_path}
+                              </code>
+                            </td>
+                            <td style={{ textAlign: 'right', fontWeight: '800', color: '#059669' }}>
+                              {tp.views}
+                            </td>
+                            <td style={{ textAlign: 'right', fontWeight: '600', color: '#6366F1' }}>
+                              {tp.visitors}
+                            </td>
+                            <td style={{ textAlign: 'right', color: '#64748b' }}>
+                              {pct}%
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 ) : (
-                  <div style={{ fontSize: '13px', color: '#94a3b8', padding: '16px', textAlign: 'center' }}>
-                    Tracking pageviews...
+                  <div style={{ fontSize: '13px', color: '#94a3b8', padding: '16px', textAlign: 'center', backgroundColor: '#f8fafc', borderRadius: '8px' }}>
+                    Waiting for real customer pageviews...
                   </div>
                 )}
               </div>
 
               <div>
-                <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', marginBottom: '10px' }}>
-                  📱 Device Breakdown
+                <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b', marginBottom: '10px' }}>
+                  📱 Device Breakdown (Calculated Per Device)
                 </h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {data.visitorOverview?.deviceStats?.length > 0 ? (
                     data.visitorOverview.deviceStats.map((ds, idx) => {
-                      const totalDev = data.visitorOverview.deviceStats.reduce((acc, d) => acc + (d.count || 0), 0) || 1;
-                      const pct = Math.round(((ds.count || 0) / totalDev) * 100);
+                      const totalDevViews = data.visitorOverview.deviceStats.reduce((acc, d) => acc + (d.views || d.count || 0), 0) || 1;
+                      const viewCount = ds.views || ds.count || 0;
+                      const pct = Math.round((viewCount / totalDevViews) * 100);
                       return (
-                        <div key={idx} style={{ padding: '12px', backgroundColor: '#f8fafc', borderRadius: '8px' }}>
+                        <div key={idx} style={{ padding: '12px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                            <span style={{ fontWeight: '600', color: '#334155' }}>
+                            <span style={{ fontWeight: '700', color: '#334155' }}>
                               {ds.device === 'MOBILE' ? '📱 Mobile / Smartphone' : ds.device === 'TABLET' ? '📟 Tablet' : '💻 Desktop / Laptop'}
                             </span>
-                            <span style={{ fontWeight: '700', color: '#0f172a' }}>{ds.count} views ({pct}%)</span>
+                            <span style={{ fontWeight: '700', color: '#0f172a' }}>
+                              <strong style={{ color: '#059669' }}>{viewCount} views</strong> ({pct}%)
+                              {ds.visitors !== undefined && (
+                                <span style={{ color: '#6366F1', marginLeft: '6px' }}>• {ds.visitors} {ds.visitors === 1 ? 'device' : 'devices'}</span>
+                              )}
+                            </span>
                           </div>
                           <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
                             <div style={{ width: `${pct}%`, height: '100%', backgroundColor: ds.device === 'MOBILE' ? '#059669' : '#3b82f6', borderRadius: '3px' }}></div>
@@ -170,7 +204,7 @@ export default function Analytics() {
                       );
                     })
                   ) : (
-                    <div style={{ fontSize: '13px', color: '#94a3b8', padding: '16px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '13px', color: '#94a3b8', padding: '16px', textAlign: 'center', backgroundColor: '#f8fafc', borderRadius: '8px' }}>
                       Gathering device analytics...
                     </div>
                   )}

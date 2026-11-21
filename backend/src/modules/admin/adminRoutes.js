@@ -111,6 +111,8 @@ router.get('/dashboard', authenticate, requireRoles('SUPER_ADMIN', 'ADMIN', 'ORD
     // Visitor statistics (How many people have visited)
     let visitorStats = { total_visits: 0, unique_visitors: 0 };
     let todayVisitorStats = { today_visits: 0, today_unique_visitors: 0 };
+    let topPages = [];
+    let deviceStats = [];
     try {
       visitorStats = await get(
         `SELECT COUNT(*) as total_visits, COUNT(DISTINCT visitor_id) as unique_visitors FROM site_visits`
@@ -122,6 +124,20 @@ router.get('/dashboard', authenticate, requireRoles('SUPER_ADMIN', 'ADMIN', 'ORD
          WHERE CAST(created_at AS TEXT) LIKE ? OR CAST(created_at AS TEXT) LIKE ?`,
         [`${istDateString}%`, `${utcDateString}%`]
       ) || todayVisitorStats;
+
+      topPages = await all(
+        `SELECT page_path, COUNT(*) as views, COUNT(DISTINCT visitor_id) as visitors
+         FROM site_visits
+         GROUP BY page_path
+         ORDER BY views DESC
+         LIMIT 15`
+      ) || [];
+
+      deviceStats = await all(
+        `SELECT COALESCE(device_type, 'DESKTOP') as device, COUNT(*) as views, COUNT(DISTINCT visitor_id) as visitors
+         FROM site_visits
+         GROUP BY device_type`
+      ) || [];
     } catch (vErr) {
       // Fallback
     }
@@ -133,6 +149,8 @@ router.get('/dashboard', authenticate, requireRoles('SUPER_ADMIN', 'ADMIN', 'ORD
         uniqueVisitors: parseInt(visitorStats?.unique_visitors || 0, 10),
         todayVisits: parseInt(todayVisitorStats?.today_visits || 0, 10),
         todayUniqueVisitors: parseInt(todayVisitorStats?.today_unique_visitors || 0, 10),
+        topPages: topPages || [],
+        deviceStats: deviceStats || [],
         todayOrders: parseInt(todayStats?.today_orders || 0, 10),
         todayRevenue: parseFloat(todayStats?.today_revenue || 0),
         todayOnlineRevenue: parseFloat(todayStats?.today_online_revenue || 0),
@@ -258,7 +276,7 @@ router.get('/analytics', authenticate, requireRoles('SUPER_ADMIN', 'ADMIN'), asy
          LIMIT 10`
       );
       const deviceStats = await all(
-        `SELECT COALESCE(device_type, 'DESKTOP') as device, COUNT(*) as count
+        `SELECT COALESCE(device_type, 'DESKTOP') as device, COUNT(*) as views, COUNT(DISTINCT visitor_id) as visitors
          FROM site_visits
          GROUP BY device_type`
       );

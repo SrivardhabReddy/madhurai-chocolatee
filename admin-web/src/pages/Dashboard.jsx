@@ -191,7 +191,7 @@ export default function Dashboard({ onNavigate }) {
     { 
       label: 'People Visited', 
       val: (metrics?.uniqueVisitors || 0).toLocaleString('en-IN'), 
-      sub: `${metrics?.todayUniqueVisitors || 0} visited today • ${(metrics?.totalVisits || 0).toLocaleString('en-IN')} views`,
+      sub: `${(metrics?.totalVisits || 0).toLocaleString('en-IN')} total views • ${metrics?.todayUniqueVisitors || 0} people today`,
       icon: Users, 
       color: '#4F46E5', 
       bg: '#EEF2FF' 
@@ -400,50 +400,106 @@ export default function Dashboard({ onNavigate }) {
             )}
           </div>
 
-          {/* Quick Metrics Bar */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '16px' }}>
-            <div style={{ padding: '10px', backgroundColor: '#EEF2FF', borderRadius: '8px', textAlign: 'center' }}>
-              <div style={{ fontSize: '0.7rem', color: '#4338CA', fontWeight: '700', textTransform: 'uppercase' }}>People</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#312E81', marginTop: '2px' }}>
+          {/* Quick Metrics Bar: People (Devices) vs Total Views */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '16px' }}>
+            <div style={{ padding: '8px', backgroundColor: '#EEF2FF', borderRadius: '8px', textAlign: 'center' }}>
+              <div style={{ fontSize: '0.68rem', color: '#4338CA', fontWeight: '700', textTransform: 'uppercase' }}>People</div>
+              <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#312E81', marginTop: '2px' }}>
                 {metrics?.uniqueVisitors ?? 0}
               </div>
+              <div style={{ fontSize: '0.65rem', color: '#6366F1' }}>Unique Devices</div>
             </div>
-            <div style={{ padding: '10px', backgroundColor: '#ECFDF5', borderRadius: '8px', textAlign: 'center' }}>
-              <div style={{ fontSize: '0.7rem', color: '#047857', fontWeight: '700', textTransform: 'uppercase' }}>Today</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#065F46', marginTop: '2px' }}>
-                {metrics?.todayUniqueVisitors ?? 0}
-              </div>
-            </div>
-            <div style={{ padding: '10px', backgroundColor: '#F8FAFC', borderRadius: '8px', textAlign: 'center', border: '1px solid #E2E8F0' }}>
-              <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: '700', textTransform: 'uppercase' }}>Views</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#1E293B', marginTop: '2px' }}>
+            <div style={{ padding: '8px', backgroundColor: '#F8FAFC', borderRadius: '8px', textAlign: 'center', border: '1px solid #E2E8F0' }}>
+              <div style={{ fontSize: '0.68rem', color: '#059669', fontWeight: '700', textTransform: 'uppercase' }}>Total Views</div>
+              <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#065F46', marginTop: '2px' }}>
                 {metrics?.totalVisits ?? 0}
               </div>
+              <div style={{ fontSize: '0.65rem', color: '#10B981' }}>All Pageviews</div>
+            </div>
+            <div style={{ padding: '8px', backgroundColor: '#ECFDF5', borderRadius: '8px', textAlign: 'center' }}>
+              <div style={{ fontSize: '0.68rem', color: '#047857', fontWeight: '700', textTransform: 'uppercase' }}>Today People</div>
+              <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#065F46', marginTop: '2px' }}>
+                {metrics?.todayUniqueVisitors ?? 0}
+              </div>
+              <div style={{ fontSize: '0.65rem', color: '#059669' }}>Active Today</div>
+            </div>
+            <div style={{ padding: '8px', backgroundColor: '#FFFBEB', borderRadius: '8px', textAlign: 'center', border: '1px solid #FDE68A' }}>
+              <div style={{ fontSize: '0.68rem', color: '#D97706', fontWeight: '700', textTransform: 'uppercase' }}>Today Views</div>
+              <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#92400E', marginTop: '2px' }}>
+                {metrics?.todayVisits ?? 0}
+              </div>
+              <div style={{ fontSize: '0.65rem', color: '#B45309' }}>Page Views</div>
             </div>
           </div>
 
-          {/* Top Visited Pages */}
-          <div style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--admin-text-main)', marginBottom: '8px' }}>
-            Most Visited Pages:
+          {/* Page Views Separately Per Page */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--admin-text-main)' }}>
+              📄 Page Views (Separately Per Page):
+            </span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--admin-text-muted)' }}>
+              Views vs Unique Devices
+            </span>
           </div>
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {(analytics?.visitorOverview?.topPages && analytics.visitorOverview.topPages.length > 0) ? (
-              analytics.visitorOverview.topPages.slice(0, 4).map((p, idx) => (
-                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', backgroundColor: '#F8FAFC', borderRadius: '6px', fontSize: '0.78rem' }}>
-                  <span style={{ color: 'var(--admin-text-main)', fontWeight: '600', fontFamily: 'monospace', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {p.page_path === '/' ? '/ (Home)' : p.page_path}
-                  </span>
-                  <span style={{ color: 'var(--admin-text-muted)' }}>
-                    <strong>{p.views}</strong> views ({p.visitors} visitors)
-                  </span>
-                </div>
-              ))
+            {((metrics?.topPages && metrics.topPages.length > 0) ? metrics.topPages : (analytics?.visitorOverview?.topPages || [])).length > 0 ? (
+              ((metrics?.topPages && metrics.topPages.length > 0) ? metrics.topPages : (analytics?.visitorOverview?.topPages || [])).slice(0, 6).map((p, idx) => {
+                const getFriendlyName = (path) => {
+                  if (!path || path === '/') return '🏠 Homepage (/)';
+                  if (path === '/products') return '🍫 Catalog (/products)';
+                  if (path.includes('madhurai-mini-bites') || path.includes('peanut-butter') || path.includes('badabites')) return '🍬 Product Page (' + path + ')';
+                  if (path === '/cart') return '🛍️ Shopping Bag (/cart)';
+                  if (path === '/checkout') return '💳 Checkout (/checkout)';
+                  if (path.startsWith('/order-success')) return '✅ Order Success (' + path.split('?')[0] + ')';
+                  if (path === '/track-order') return '🚚 Track Order (/track-order)';
+                  return path;
+                };
+
+                return (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', backgroundColor: '#F8FAFC', borderRadius: '6px', fontSize: '0.78rem', border: '1px solid #F1F5F9' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '210px' }}>
+                      <span style={{ color: 'var(--admin-text-main)', fontWeight: '700', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {getFriendlyName(p.page_path)}
+                      </span>
+                      <span style={{ color: 'var(--admin-text-muted)', fontSize: '0.68rem', fontFamily: 'monospace' }}>
+                        {p.page_path}
+                      </span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ color: '#059669', fontWeight: '800', fontSize: '0.86rem' }}>
+                        {p.views} views
+                      </span>
+                      <span style={{ display: 'block', color: '#6366F1', fontSize: '0.72rem', fontWeight: '600' }}>
+                        {p.visitors} {p.visitors === 1 ? 'device' : 'devices'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
             ) : (
-              <div style={{ fontSize: '0.76rem', color: 'var(--admin-text-muted)', textAlign: 'center', padding: '12px' }}>
-                Tracking live visitor pageviews...
+              <div style={{ fontSize: '0.76rem', color: 'var(--admin-text-muted)', textAlign: 'center', padding: '16px', backgroundColor: '#F8FAFC', borderRadius: '6px' }}>
+                Waiting for real customer pageviews...
               </div>
             )}
           </div>
+
+          {/* Device Usage Breakdown */}
+          {((metrics?.deviceStats && metrics.deviceStats.length > 0) ? metrics.deviceStats : (analytics?.visitorOverview?.deviceStats || [])).length > 0 && (
+            <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid #E2E8F0', display: 'flex', gap: '8px', fontSize: '0.74rem' }}>
+              {((metrics?.deviceStats && metrics.deviceStats.length > 0) ? metrics.deviceStats : (analytics?.visitorOverview?.deviceStats || [])).map((ds, idx) => (
+                <div key={idx} style={{ flex: 1, padding: '6px 8px', backgroundColor: '#F8FAFC', borderRadius: '6px', textAlign: 'center' }}>
+                  <span style={{ fontWeight: '700', color: '#475569' }}>
+                    {ds.device === 'MOBILE' ? '📱 Mobile' : '💻 Desktop'}:
+                  </span>
+                  <strong style={{ marginLeft: '4px', color: '#059669' }}>{ds.views || ds.count || 0} views</strong>
+                  {ds.visitors !== undefined && (
+                    <span style={{ color: '#6366F1', marginLeft: '4px' }}>({ds.visitors} devices)</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
       </div>

@@ -309,6 +309,13 @@ export function trackPurchaseConversion(order, items = []) {
     // Push the verified conversion event
     window.dataLayer.push(payload);
 
+    // Also send directly to Google Analytics 4 (GA4) if gtag is available
+    if (typeof window.gtag === 'function') {
+      try {
+        window.gtag('event', payload.event, payload.ecommerce);
+      } catch (_) {}
+    }
+
     if (window.__DEBUG_GTM__ || process.env.NODE_ENV !== 'production') {
       console.log(`[GTM] ✅ ${payload.event} event pushed to dataLayer:`, payload);
     }

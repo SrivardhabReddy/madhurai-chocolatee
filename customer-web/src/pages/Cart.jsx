@@ -222,7 +222,7 @@ export default function Cart({ onNavigate }) {
               const itemSellingPrice = parseFloat(item.selling_price) || parseFloat(item.price) || 0;
               const itemMrp = parseFloat(item.mrp) || itemSellingPrice;
               const itemQty = Math.max(1, parseInt(item.quantity, 10) || 1);
-              const itemImg = item.image_url || '/uploads/chocolate-crunch-pb.jpg';
+              const itemImg = item.image_url || '/chocolate-crunch-pb.jpg';
 
               return (
                 <div
@@ -252,7 +252,7 @@ export default function Cart({ onNavigate }) {
                       alt={item.name} 
                       onError={(e) => {
                         e.currentTarget.onerror = null;
-                        e.currentTarget.src = '/uploads/chocolate-crunch-pb.jpg';
+                        e.currentTarget.src = '/chocolate-crunch-pb.jpg';
                       }}
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                     />

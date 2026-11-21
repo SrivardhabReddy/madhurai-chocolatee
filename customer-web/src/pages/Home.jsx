@@ -73,12 +73,12 @@ export default function Home({ onNavigate }) {
 
   const faqs = [
     {
-      q: "What makes Madhurai Chocolate's Peanut Butter Crunch so special?",
-      a: "Unlike mass-market confectioneries that use palm oil and artificial flavorings, we use single-origin South Indian dark cacao combined with freshly stone-ground roasted peanuts and pure sea salt. The center stays decadently creamy with an audible, satisfying crunch in every single bite."
+      q: "What makes Madhurai Chocolates' Peanut Butter Crunch so special?",
+      a: "We combine rich dark chocolate with freshly stone-ground roasted peanuts and crunchy peanut butter filling. The center creates a delicious crunchy peanut butter lava sensation in your mouth, handcrafted in small batches with zero trans fat."
     },
     {
-      q: "How many pieces are in the 500g box and what is the individual price?",
-      a: "Our signature 500g box contains exactly 40 individually foil-wrapped pieces. At ₹400 per box, that works out to just ₹10 per luxury artisanal piece!"
+      q: "How many pieces are in the box and what is the individual price?",
+      a: "Our signature 320g box contains 40 individually wrapped pieces. At ₹190 per box (MRP ₹220, 14% OFF), that works out to only ~₹4.75 per luxury artisanal piece!"
     },
     {
       q: "How do you ensure the chocolates do not melt during summer delivery?",
@@ -101,96 +101,195 @@ export default function Home({ onNavigate }) {
         position: 'relative',
         minHeight: '620px',
         backgroundColor: 'var(--cacao-950)',
-        backgroundImage: `linear-gradient(to right, rgba(18, 9, 5, 0.94) 35%, rgba(18, 9, 5, 0.6) 75%), url('/madhurai-hero-banner.jpg')`,
+        backgroundImage: `linear-gradient(to right, rgba(18, 9, 5, 0.94) 35%, rgba(18, 9, 5, 0.65) 80%), url('/madhurai-hero-banner.jpg')`,
         backgroundSize: 'cover',
         backgroundPosition: 'center right',
         display: 'flex',
         alignItems: 'center',
-        padding: '80px 0',
+        padding: '70px 0',
         color: '#FFFFFF',
         borderBottom: '2px solid rgba(245, 158, 11, 0.3)'
       }}>
-        <div className="container">
-          <div style={{ maxWidth: '640px' }}>
-            
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '6px 14px',
-              borderRadius: 'var(--radius-full)',
-              backgroundColor: 'rgba(245, 158, 11, 0.15)',
-              border: '1px solid rgba(245, 158, 11, 0.35)',
-              color: 'var(--peanut-gold-400)',
-              fontSize: '0.84rem',
-              fontWeight: '700',
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              marginBottom: '20px'
-            }}>
-              <Sparkles size={16} />
-              <span>South Indian Artisanal Craft</span>
-            </div>
-
-            <h1 style={{
-              fontSize: 'clamp(2.5rem, 5vw, 4rem)',
-              fontFamily: 'var(--font-heading)',
-              fontWeight: '800',
-              lineHeight: '1.1',
-              color: '#FFFFFF',
-              marginBottom: '20px'
-            }}>
-              Rich Dark Cacao. <br />
-              <span style={{
-                background: 'linear-gradient(90deg, #FDE68A 0%, #F59E0B 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent'
+        <div className="container" style={{ width: '100%' }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+            gap: '40px',
+            alignItems: 'center'
+          }}>
+            {/* Left Content Column */}
+            <div style={{ maxWidth: '600px' }}>
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 14px',
+                borderRadius: 'var(--radius-full)',
+                backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                border: '1px solid rgba(245, 158, 11, 0.35)',
+                color: 'var(--peanut-gold-400)',
+                fontSize: '0.84rem',
+                fontWeight: '700',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                marginBottom: '18px'
               }}>
-                Roasted Crunchy Peanut Butter Inside.
-              </span>
-            </h1>
+                <Sparkles size={16} />
+                <span>Handcrafted Artisanal Chocolates</span>
+              </div>
 
-            <p style={{
-              fontSize: '1.15rem',
-              color: 'var(--cream-200)',
-              lineHeight: '1.65',
-              marginBottom: '32px'
-            }}>
-              Handcrafted in Madurai using single-origin cacao and slow-roasted chunky peanuts. Experience intense flavor harmony without palm oil or artificial preservatives.
-            </p>
+              <h1 style={{
+                fontSize: 'clamp(2.3rem, 4.8vw, 3.8rem)',
+                fontFamily: 'var(--font-heading)',
+                fontWeight: '800',
+                lineHeight: '1.15',
+                color: '#FFFFFF',
+                marginBottom: '18px'
+              }}>
+                Chocolate Moments, <br />
+                <span style={{
+                  background: 'linear-gradient(90deg, #FDE68A 0%, #F59E0B 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent'
+                }}>
+                  Made More Delicious.
+                </span>
+              </h1>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
-              <button
-                onClick={() => mainProduct ? onNavigate('product_detail', { slug: mainProduct.slug, id: mainProduct.id }) : onNavigate('products')}
-                className="btn btn-gold btn-lg"
-              >
-                <span>Order {mainProduct ? `${mainProduct.name} (${mainProduct.weight || '320g'})` : 'Artisanal Chocolates'}</span>
-                <ArrowRight size={18} />
-              </button>
+              <p style={{
+                fontSize: 'clamp(1rem, 2vw, 1.18rem)',
+                color: 'var(--cream-200)',
+                lineHeight: '1.65',
+                marginBottom: '30px'
+              }}>
+                Discover rich chocolate with delicious crunchy peanut butter filling. A little indulgence made to brighten your day.
+              </p>
 
-              <button
-                onClick={() => onNavigate('products')}
-                className="btn btn-outline btn-lg"
-                style={{ color: '#FFFFFF', borderColor: 'rgba(255, 255, 255, 0.4)' }}
-              >
-                Explore Full Catalog
-              </button>
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'center' }}>
+                <button
+                  onClick={() => mainProduct ? onNavigate('product_detail', { slug: mainProduct.slug, id: mainProduct.id }) : onNavigate('products')}
+                  className="btn btn-gold btn-lg"
+                  style={{ minWidth: '180px' }}
+                >
+                  <ShoppingBag size={18} />
+                  <span>Shop Chocolates</span>
+                  <ArrowRight size={18} />
+                </button>
+
+                <button
+                  onClick={() => onNavigate('products')}
+                  className="btn btn-outline btn-lg"
+                  style={{ color: '#FFFFFF', borderColor: 'rgba(255, 255, 255, 0.5)', minWidth: '180px' }}
+                >
+                  Explore Our Chocolates
+                </button>
+              </div>
+
+              {/* Micro Trust Badges */}
+              <div style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '18px',
+                marginTop: '32px',
+                paddingTop: '20px',
+                borderTop: '1px solid rgba(255, 255, 255, 0.12)',
+                fontSize: '0.84rem',
+                color: 'var(--cream-300)'
+              }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <CheckCircle2 size={16} style={{ color: 'var(--peanut-gold-400)' }} />
+                  40 Pieces Box (~₹4.75/bite)
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <CheckCircle2 size={16} style={{ color: 'var(--peanut-gold-400)' }} />
+                  Free Delivery on ₹500+ or 5+ packs
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <CheckCircle2 size={16} style={{ color: 'var(--peanut-gold-400)' }} />
+                  Zero-Melt Cold-Pack Guarantee
+                </span>
+              </div>
             </div>
 
-            {/* Micro Trust Points */}
-            <div style={{ display: 'flex', gap: '24px', marginTop: '40px', fontSize: '0.85rem', color: 'var(--cream-300)' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <CheckCircle2 size={16} style={{ color: 'var(--peanut-gold-400)' }} />
-                ₹{mainProduct?.pieces_per_pack > 1 ? Math.round((mainProduct.selling_price || 0) / mainProduct.pieces_per_pack) : (mainProduct?.selling_price || 10)} per piece value
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <CheckCircle2 size={16} style={{ color: 'var(--peanut-gold-400)' }} />
-                Free delivery on 5+ packs
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <CheckCircle2 size={16} style={{ color: 'var(--peanut-gold-400)' }} />
-                Zero-melt guarantee
-              </span>
+            {/* Right Visual Hero Showcase */}
+            <div style={{ display: 'flex', justifyContent: 'center', position: 'relative' }}>
+              <div 
+                onClick={() => mainProduct ? onNavigate('product_detail', { slug: mainProduct.slug, id: mainProduct.id }) : onNavigate('products')}
+                style={{
+                  cursor: 'pointer',
+                  maxWidth: '420px',
+                  width: '100%',
+                  backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                  borderRadius: 'var(--radius-xl)',
+                  padding: '16px',
+                  border: '1.5px solid rgba(245, 158, 11, 0.35)',
+                  boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)',
+                  backdropFilter: 'blur(8px)',
+                  transition: 'transform 0.3s ease'
+                }}
+                onMouseOver={(e) => (e.currentTarget.style.transform = 'translateY(-4px)')}
+                onMouseOut={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+              >
+                <div style={{
+                  position: 'relative',
+                  borderRadius: 'var(--radius-lg)',
+                  overflow: 'hidden',
+                  backgroundColor: 'var(--cacao-900)'
+                }}>
+                  <img
+                    src="/chocolate-crunch-pb.jpg"
+                    alt="Rich chocolate with crunchy peanut butter filling inside"
+                    style={{ width: '100%', height: '260px', objectFit: 'cover', display: 'block' }}
+                  />
+                  <div style={{
+                    position: 'absolute',
+                    top: '12px',
+                    left: '12px',
+                    backgroundColor: 'rgba(18, 9, 5, 0.85)',
+                    backdropFilter: 'blur(4px)',
+                    color: 'var(--peanut-gold-300)',
+                    padding: '4px 10px',
+                    borderRadius: 'var(--radius-full)',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    border: '1px solid rgba(245, 158, 11, 0.3)'
+                  }}>
+                    Crunchy Peanut Butter Filling
+                  </div>
+                </div>
+
+                {/* Sub-card with Box Preview and Price */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '14px',
+                  marginTop: '14px',
+                  padding: '12px',
+                  backgroundColor: 'rgba(18, 9, 5, 0.7)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)'
+                }}>
+                  <img
+                    src="/madhurai-pack-box.jpg"
+                    alt="Madhurai Chocolates 40 pieces pack box"
+                    style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(245, 158, 11, 0.4)' }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <h4 style={{ color: '#FFFFFF', fontSize: '1rem', margin: 0, fontWeight: 700 }}>
+                      MADHURAI mini bites
+                    </h4>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--peanut-gold-400)', display: 'block' }}>
+                      320g Box • 40 Pieces (~₹4.75/pc)
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '4px' }}>
+                      <span style={{ color: '#FFFFFF', fontWeight: 800, fontSize: '1.15rem' }}>₹190</span>
+                      <span style={{ color: 'var(--cream-300)', textDecoration: 'line-through', fontSize: '0.85rem' }}>₹220</span>
+                      <span style={{ color: '#10B981', fontWeight: 700, fontSize: '0.78rem' }}>14% OFF</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
           </div>

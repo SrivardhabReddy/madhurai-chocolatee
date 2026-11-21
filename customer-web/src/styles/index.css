@@ -308,3 +308,19 @@ input, textarea, select {
     font-size: 0.9rem;
   }
 }
+
+.mobile-sticky-bar {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .mobile-sticky-bar {
+    display: flex !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .wa-btn-text {
+    display: none;
+  }
+}

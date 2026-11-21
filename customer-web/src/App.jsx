@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar.jsx';
 import Footer from './components/Footer.jsx';
+import WhatsAppButton from './components/WhatsAppButton.jsx';
 import Home from './pages/Home.jsx';
 import Catalog from './pages/Catalog.jsx';
 import ProductDetail from './pages/ProductDetail.jsx';
@@ -88,9 +89,34 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Track customer storefront visits for live admin analytics
+  const resolvePagePath = (page, params = {}) => {
+    if (page === 'products') return params.category ? `/categories/${params.category}` : '/products';
+    if (page === 'product_detail') return `/products/${params.slug || 'madhurai-mini-bites'}`;
+    if (page === 'articles') return '/articles';
+    if (page === 'article_detail') return `/articles/${params.slug || ''}`;
+    if (page === 'cart') return '/cart';
+    if (page === 'checkout') return '/checkout';
+    if (page === 'order_success') return `/order-success/${params.orderId || ''}`;
+    if (page === 'track_order') return '/track-order';
+    if (page === 'login') return '/login';
+    if (page === 'register') return '/register';
+    if (page === 'forgot_password') return '/forgot-password';
+    if (page === 'account') return '/account';
+    if (page === 'order_detail') return `/account/orders/${params.orderId || ''}`;
+    if (page === 'wishlist') return '/wishlist';
+    if (page === 'about') return '/about';
+    if (page === 'contact') return '/contact';
+    if (page === 'shipping_policy') return '/shipping-policy';
+    if (page === 'refund_policy') return '/cancellation-refund-policy';
+    if (page === 'privacy_policy') return '/privacy-policy';
+    if (page === 'terms') return '/terms';
+    return '/';
+  };
+
+  // Track customer storefront visits for live admin analytics with explicit page path
   useEffect(() => {
-    trackPageView(window.location.pathname);
+    const activePath = resolvePagePath(currentPage, pageParams);
+    trackPageView(activePath);
   }, [currentPage, pageParams]);
 
   const navigate = (page, params = {}) => {
@@ -98,28 +124,7 @@ export default function App() {
     setPageParams(params);
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    let url = '/';
-    if (page === 'products') url = params.category ? `/categories/${params.category}` : '/products';
-    else if (page === 'product_detail') url = `/products/${params.slug}`;
-    else if (page === 'articles') url = '/articles';
-    else if (page === 'article_detail') url = `/articles/${params.slug || ''}`;
-    else if (page === 'cart') url = '/cart';
-    else if (page === 'checkout') url = '/checkout';
-    else if (page === 'order_success') url = `/order-success/${params.orderId || ''}`;
-    else if (page === 'track_order') url = '/track-order';
-    else if (page === 'login') url = '/login';
-    else if (page === 'register') url = '/register';
-    else if (page === 'forgot_password') url = '/forgot-password';
-    else if (page === 'account') url = '/account';
-    else if (page === 'order_detail') url = `/account/orders/${params.orderId || ''}`;
-    else if (page === 'wishlist') url = '/wishlist';
-    else if (page === 'about') url = '/about';
-    else if (page === 'contact') url = '/contact';
-    else if (page === 'shipping_policy') url = '/shipping-policy';
-    else if (page === 'refund_policy') url = '/cancellation-refund-policy';
-    else if (page === 'privacy_policy') url = '/privacy-policy';
-    else if (page === 'terms') url = '/terms';
-
+    const url = resolvePagePath(page, params);
     try {
       window.history.pushState({}, '', url);
     } catch (e) {}
@@ -165,6 +170,8 @@ export default function App() {
         {currentPage === 'privacy_policy' && <PrivacyPolicy />}
         {currentPage === 'terms' && <Terms />}
       </main>
+
+      <WhatsAppButton currentPage={currentPage} hasBottomBar={currentPage === 'product_detail'} />
 
       <Footer onNavigate={navigate} />
     </div>

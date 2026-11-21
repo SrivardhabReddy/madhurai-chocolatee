@@ -46,6 +46,17 @@ export function trackPageView(customPath) {
     }
     lastTracked = { path, time: now };
 
+    // Send SPA pageview to Google Analytics 4 (GA4: G-14EJ4DQB46)
+    try {
+      if (typeof window.gtag === 'function') {
+        window.gtag('event', 'page_view', {
+          page_path: path,
+          page_title: document.title || 'Madhurai Chocolates',
+          page_location: (window.location.origin || 'https://madhuraichocolates.in') + path
+        });
+      }
+    } catch (_) {}
+
     const visitorId = getVisitorId();
     const sessionId = getSessionId();
     const isMobile = /Mobile|Android|iP(hone|od|ad)|IEMobile|BlackBerry/i.test(navigator.userAgent || '');
