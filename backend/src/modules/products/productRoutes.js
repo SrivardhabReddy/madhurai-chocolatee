@@ -36,6 +36,31 @@ const upload = multer({
   }
 });
 
+// Helper to dynamically apply pre-booking pricing and status
+function applyPrebookingRules(prod) {
+  if (!prod) return prod;
+  const now = new Date();
+  const endDate = prod.prebooking_end_date ? new Date(prod.prebooking_end_date) : null;
+  const isPrebookingActive = Number(prod.is_prebooking) === 1 && (!endDate || now <= endDate);
+
+  prod.is_prebooking_active = isPrebookingActive ? 1 : 0;
+  if (Number(prod.is_prebooking) === 1) {
+    if (!isPrebookingActive) {
+      // Pre-booking has closed (after Dec 1, 2026): price increases, prebooking deposit is 0
+      if (prod.post_prebooking_price && Number(prod.post_prebooking_price) > 0) {
+        prod.selling_price = parseFloat(prod.post_prebooking_price);
+      }
+      prod.prebooking_deposit = 0;
+      prod.balance_on_delivery = 0;
+    } else {
+      // Pre-booking is currently active (until Dec 1, 2026)
+      prod.prebooking_deposit = parseFloat(prod.prebooking_deposit) || 0;
+      prod.balance_on_delivery = parseFloat(prod.balance_on_delivery) || 0;
+    }
+  }
+  return prod;
+}
+
 // Helper to create slug
 function slugify(text) {
   return text
@@ -108,8 +133,9 @@ router.get('/', async (req, res, next) => {
 
     const products = await all(sql, params);
 
-    // Attach primary and gallery images
+    // Attach primary and gallery images and apply dynamic pre-booking rules
     for (const prod of products) {
+      applyPrebookingRules(prod);
       const images = await all(
         'SELECT * FROM product_images WHERE product_id = ? ORDER BY is_primary DESC, display_order ASC',
         [prod.id]
@@ -146,6 +172,8 @@ router.get('/:slug', async (req, res, next) => {
     if (!product) {
       return res.status(404).json({ success: false, message: 'Product not found.' });
     }
+
+    applyPrebookingRules(product);
 
     const images = await all(
       'SELECT * FROM product_images WHERE product_id = ? ORDER BY is_primary DESC, display_order ASC',

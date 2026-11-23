@@ -12,7 +12,11 @@ router.post('/validate', optionalAuth, async (req, res, next) => {
 
     let subtotal = 0;
     let totalMrp = 0;
+    let advancePayable = 0;
+    let balanceDueOnDelivery = 0;
+    let hasPrebooking = false;
     const validatedItems = [];
+    const now = new Date();
 
     for (const item of items) {
       const pId = item.product_id || item.id;
@@ -35,8 +39,23 @@ router.post('/validate', optionalAuth, async (req, res, next) => {
       }
 
       const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
-      const sellingPrice = prod ? parseFloat(prod.selling_price) : (parseFloat(item.selling_price) || parseFloat(item.price) || 0);
+      let sellingPrice = prod ? parseFloat(prod.selling_price) : (parseFloat(item.selling_price) || parseFloat(item.price) || 0);
       const mrp = prod ? parseFloat(prod.mrp) : (parseFloat(item.mrp) || sellingPrice);
+
+      // Pre-booking logic
+      const endDate = prod?.prebooking_end_date ? new Date(prod.prebooking_end_date) : null;
+      const isPrebookingActive = (Number(prod?.is_prebooking) === 1 || Number(item.is_prebooking) === 1) && (!endDate || now <= endDate);
+
+      let depositPerUnit = 0;
+      let balancePerUnit = 0;
+
+      if (isPrebookingActive) {
+        hasPrebooking = true;
+        depositPerUnit = parseFloat(prod?.prebooking_deposit ?? item.prebooking_deposit) || (sellingPrice === 25 ? 15 : (sellingPrice === 125 ? 50 : sellingPrice));
+        balancePerUnit = parseFloat(prod?.balance_on_delivery ?? item.balance_on_delivery) || Math.max(0, sellingPrice - depositPerUnit);
+      } else if (Number(prod?.is_prebooking) === 1 && prod?.post_prebooking_price > 0) {
+        sellingPrice = parseFloat(prod.post_prebooking_price);
+      }
 
       let currentStock = 99;
       if (prod) {
@@ -52,8 +71,13 @@ router.post('/validate', optionalAuth, async (req, res, next) => {
 
       const itemTotal = sellingPrice * qty;
       const itemMrpTotal = mrp * qty;
+      const itemAdvance = (isPrebookingActive ? depositPerUnit : sellingPrice) * qty;
+      const itemBalance = (isPrebookingActive ? balancePerUnit : 0) * qty;
+
       subtotal += itemTotal;
       totalMrp += itemMrpTotal;
+      advancePayable += itemAdvance;
+      balanceDueOnDelivery += itemBalance;
 
       validatedItems.push({
         product_id: prod ? prod.id : pId,
@@ -68,6 +92,11 @@ router.post('/validate', optionalAuth, async (req, res, next) => {
         discount: prod ? prod.discount : (mrp > sellingPrice ? Math.round(((mrp - sellingPrice) / mrp) * 100) : 0),
         quantity: qty,
         itemTotal,
+        is_prebooking: isPrebookingActive ? 1 : 0,
+        prebooking_deposit: depositPerUnit,
+        balance_on_delivery: balancePerUnit,
+        itemAdvance,
+        itemBalance,
         inStock: currentStock >= qty,
         availableStock: currentStock
       });
@@ -146,6 +175,9 @@ router.post('/validate', optionalAuth, async (req, res, next) => {
 
     const deliveryCharge = deliveryInfo.freeDelivery ? 0 : deliveryInfo.deliveryCharge;
     const finalTotal = Math.max(0, subtotal - discountAmount + deliveryCharge);
+    const finalPayableNow = hasPrebooking 
+      ? Math.max(0, Math.round((advancePayable - discountAmount + deliveryCharge) * 100) / 100)
+      : finalTotal;
     const totalSavings = (totalMrp - subtotal) + discountAmount;
 
     return res.json({
@@ -160,6 +192,10 @@ router.post('/validate', optionalAuth, async (req, res, next) => {
         delivery: deliveryInfo,
         deliveryCharge,
         tax: 0, // In India, FMCG packaged food prices are inclusive of GST
+        advancePayable,
+        balanceDueOnDelivery,
+        hasPrebooking,
+        finalPayableNow,
         finalTotal
       }
     });

@@ -30,7 +30,12 @@ export function CartProvider({ children }) {
             mrp: mrpVal,
             weight: item.weight || '500g',
             pieces_per_pack: item.pieces_per_pack || 40,
-            selling_unit: item.selling_unit || 'BOX'
+            selling_unit: item.selling_unit || 'BOX',
+            is_prebooking: item.is_prebooking ? 1 : 0,
+            prebooking_deposit: parseFloat(item.prebooking_deposit) || 0,
+            balance_on_delivery: parseFloat(item.balance_on_delivery) || 0,
+            prebooking_end_date: item.prebooking_end_date || null,
+            post_prebooking_price: parseFloat(item.post_prebooking_price) || 0
           };
         })
         .filter(Boolean);
@@ -152,6 +157,11 @@ export function CartProvider({ children }) {
             selling_price: sPrice,
             price: sPrice,
             discount: product.discount || (mrpVal > sPrice ? Math.round(((mrpVal - sPrice) / mrpVal) * 100) : 0),
+            is_prebooking: product.is_prebooking ? 1 : 0,
+            prebooking_deposit: parseFloat(product.prebooking_deposit) || 0,
+            balance_on_delivery: parseFloat(product.balance_on_delivery) || 0,
+            prebooking_end_date: product.prebooking_end_date || null,
+            post_prebooking_price: parseFloat(product.post_prebooking_price) || 0,
             quantity: qty
           }
         ];

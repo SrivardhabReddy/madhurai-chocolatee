@@ -242,6 +242,40 @@ export default function Checkout({ onNavigate }) {
   const activeDiscount = Number(summary?.discountAmount || summary?.coupon?.discount || summary?.coupon?.discount_amount || appliedCoupon?.discount_amount || appliedCoupon?.discount || 0);
 
   const totalQuantity = cartItems.reduce((acc, i) => acc + (parseInt(i.quantity, 10) || 1), 0);
+
+  // Pre-booking calculations
+  const now = new Date();
+  const hasPrebooking = cartItems.some(i => {
+    const isPre = Number(i.is_prebooking) === 1 || String(i.id || i.product_id).includes('kunafa');
+    const endDate = i.prebooking_end_date ? new Date(i.prebooking_end_date) : new Date('2026-12-01T23:59:59+05:30');
+    return isPre && now <= endDate;
+  });
+
+  const advancePayable = cartItems.reduce((acc, i) => {
+    const isPre = Number(i.is_prebooking) === 1 || String(i.id || i.product_id).includes('kunafa');
+    const endDate = i.prebooking_end_date ? new Date(i.prebooking_end_date) : new Date('2026-12-01T23:59:59+05:30');
+    const activePre = isPre && now <= endDate;
+    const qty = Math.max(1, parseInt(i.quantity, 10) || 1);
+    const sPrice = parseFloat(i.selling_price) || parseFloat(i.price) || 0;
+    const deposit = activePre 
+      ? (parseFloat(i.prebooking_deposit) || (sPrice === 25 ? 15 : (sPrice === 125 ? 50 : sPrice)))
+      : sPrice;
+    return acc + (deposit * qty);
+  }, 0);
+
+  const balanceDueOnDelivery = cartItems.reduce((acc, i) => {
+    const isPre = Number(i.is_prebooking) === 1 || String(i.id || i.product_id).includes('kunafa');
+    const endDate = i.prebooking_end_date ? new Date(i.prebooking_end_date) : new Date('2026-12-01T23:59:59+05:30');
+    const activePre = isPre && now <= endDate;
+    const qty = Math.max(1, parseInt(i.quantity, 10) || 1);
+    const sPrice = parseFloat(i.selling_price) || parseFloat(i.price) || 0;
+    const deposit = activePre 
+      ? (parseFloat(i.prebooking_deposit) || (sPrice === 25 ? 15 : (sPrice === 125 ? 50 : sPrice)))
+      : sPrice;
+    const balance = activePre ? Math.max(0, sPrice - deposit) : 0;
+    return acc + (balance * qty);
+  }, 0);
+
   const isFreeDelivery = summary?.delivery?.freeDelivery ?? (totalQuantity >= 5 || calculatedSubtotal >= 500);
   const deliveryFee = isFreeDelivery ? 0 : (summary?.deliveryCharge !== undefined ? Number(summary.deliveryCharge) : 40);
 
@@ -250,6 +284,10 @@ export default function Checkout({ onNavigate }) {
   const finalTotalDisplay = (summary && Number(summary.subtotal) > 0 && summary.finalTotal !== undefined && Math.abs(Number(summary.finalTotal) - calculatedFinalTotal) < 1)
     ? Number(summary.finalTotal)
     : calculatedFinalTotal;
+
+  const payableNowAmount = hasPrebooking
+    ? (summary?.finalPayableNow !== undefined ? Number(summary.finalPayableNow) : Math.max(0, Math.round((advancePayable - activeDiscount + deliveryFee) * 100) / 100))
+    : finalTotalDisplay;
 
   const handleApplyCoupon = async (e) => {
     if (e) e.preventDefault();
@@ -1301,6 +1339,28 @@ export default function Checkout({ onNavigate }) {
                     </div>
                   )}
 
+                  {hasPrebooking && (
+                    <div style={{
+                      backgroundColor: '#FFFBEB',
+                      border: '1px solid #FCD34D',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '10px 12px',
+                      marginTop: '4px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#047857', fontWeight: '700', fontSize: '0.88rem', marginBottom: '4px' }}>
+                        <span>✨ Pre-Booking Token (Pay Online)</span>
+                        <span>₹{advancePayable.toFixed(2)}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#B45309', fontWeight: '700', fontSize: '0.88rem' }}>
+                        <span>Remaining Due on Delivery</span>
+                        <span>₹{balanceDueOnDelivery.toFixed(2)}</span>
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: '#78350F', marginTop: '6px' }}>
+                        * Pre-booking token secures your order. The remaining balance is collected upon doorstep delivery.
+                      </div>
+                    </div>
+                  )}
+
                   <div style={{
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -1311,9 +1371,9 @@ export default function Checkout({ onNavigate }) {
                     paddingTop: '12px',
                     marginTop: '4px'
                   }}>
-                    <span>Total Amount</span>
-                    <span>
-                      ₹{finalTotalDisplay.toFixed(2)}
+                    <span>{hasPrebooking ? 'Pay Online Now' : 'Total Amount'}</span>
+                    <span style={{ color: hasPrebooking ? '#047857' : 'inherit' }}>
+                      ₹{payableNowAmount.toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -1335,7 +1395,9 @@ export default function Checkout({ onNavigate }) {
                     ? 'Processing...' 
                     : paymentMethod === 'COD' 
                       ? 'Confirm Cash on Delivery Order' 
-                      : `Pay ₹${finalTotalDisplay.toFixed(2)} with Razorpay`}
+                      : hasPrebooking 
+                        ? `Pre-Book & Pay ₹${payableNowAmount.toFixed(2)} with Razorpay`
+                        : `Pay ₹${finalTotalDisplay.toFixed(2)} with Razorpay`}
                 </button>
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '14px' }}>

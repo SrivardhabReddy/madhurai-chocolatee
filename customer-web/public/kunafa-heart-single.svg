@@ -1,0 +1,195 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradients -->
+    <radialGradient id="bgGrad" cx="50%" cy="45%" r="65%">
+      <stop offset="0%" stop-color="#3D1D10" />
+      <stop offset="50%" stop-color="#241008" />
+      <stop offset="100%" stop-color="#120603" />
+    </radialGradient>
+    <radialGradient id="ambientGlow" cx="50%" cy="42%" r="40%">
+      <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.28" />
+      <stop offset="70%" stop-color="#10B981" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Chocolate Shell Gradients -->
+    <linearGradient id="chocShell" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4A2312" />
+      <stop offset="35%" stop-color="#301509" />
+      <stop offset="75%" stop-color="#1A0A04" />
+      <stop offset="100%" stop-color="#0D0502" />
+    </linearGradient>
+    <linearGradient id="chocHighlight" x1="20%" y1="0%" x2="70%" y2="80%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.45" />
+      <stop offset="30%" stop-color="#D97706" stop-opacity="0.25" />
+      <stop offset="60%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- Pistachio Cream Gradient -->
+    <linearGradient id="pistachioCream" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#84CC16" />
+      <stop offset="40%" stop-color="#65A30D" />
+      <stop offset="85%" stop-color="#4D7C0F" />
+      <stop offset="100%" stop-color="#365314" />
+    </linearGradient>
+
+    <!-- Kataifi Golden Shreds Gradient -->
+    <linearGradient id="kataifiGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE68A" />
+      <stop offset="50%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#B45309" />
+    </linearGradient>
+
+    <!-- Gold Foil & Badge Gradients -->
+    <linearGradient id="luxuryGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FEF3C7" />
+      <stop offset="30%" stop-color="#F59E0B" />
+      <stop offset="70%" stop-color="#D97706" />
+      <stop offset="100%" stop-color="#92400E" />
+    </linearGradient>
+
+    <!-- Drop Shadows -->
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="24" stdDeviation="28" flood-color="#000000" flood-opacity="0.75" />
+    </filter>
+    <filter id="innerGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feComposite in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="shadowDiff" />
+      <feFlood flood-color="#FEF08A" flood-opacity="0.3" />
+      <feComposite in2="shadowDiff" operator="in" />
+      <feComposite in2="SourceGraphic" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="800" height="800" fill="url(#bgGrad)" />
+  <circle cx="400" cy="380" r="320" fill="url(#ambientGlow)" />
+
+  <!-- Artisanal Slate Platter Shadow -->
+  <ellipse cx="400" cy="620" rx="280" ry="42" fill="#060201" opacity="0.8" />
+  <ellipse cx="400" cy="610" rx="230" ry="32" fill="#000000" opacity="0.6" />
+
+  <!-- Background Ambient Pistachio & Gold Dust Particles -->
+  <g opacity="0.65">
+    <circle cx="210" cy="220" r="3.5" fill="#84CC16" />
+    <circle cx="580" cy="180" r="4" fill="#F59E0B" />
+    <circle cx="160" cy="460" r="3" fill="#FDE68A" />
+    <circle cx="640" cy="490" r="3.5" fill="#84CC16" />
+    <circle cx="270" cy="640" r="4.5" fill="#F59E0B" />
+    <circle cx="550" cy="630" r="3" fill="#A3E635" />
+    <!-- Pistachio pieces -->
+    <path d="M 190 320 Q 198 310 205 322 Q 195 330 190 320 Z" fill="#65A30D" />
+    <path d="M 610 340 Q 622 332 626 345 Q 615 352 610 340 Z" fill="#84CC16" />
+    <path d="M 230 550 Q 240 540 248 552 Q 236 560 230 550 Z" fill="#4D7C0F" />
+    <path d="M 570 560 Q 582 550 588 562 Q 575 572 570 560 Z" fill="#65A30D" />
+  </g>
+
+  <!-- MAIN SCULPTED 3D HEART CHOCOLATE -->
+  <g filter="url(#softShadow)" transform="translate(0, -10)">
+    <!-- Base Heart Silhouette -->
+    <path d="M 400 580 
+             C 320 510, 160 390, 160 270 
+             A 120 120 0 0 1 400 230 
+             A 120 120 0 0 1 640 270 
+             C 640 390, 480 510, 400 580 Z" 
+          fill="url(#chocShell)" />
+
+    <!-- 3D Bevel Rim Highlight -->
+    <path d="M 400 565 
+             C 328 498, 178 382, 178 272 
+             A 108 108 0 0 1 395 238 
+             A 108 108 0 0 1 622 272 
+             C 622 382, 472 498, 400 565 Z" 
+          fill="none" stroke="url(#chocHighlight)" stroke-width="6" opacity="0.75" />
+
+    <!-- Glossy Curved Reflection On Heart Left Lobe -->
+    <path d="M 210 260 
+             C 210 205, 275 185, 345 205 
+             C 310 230, 230 255, 210 260 Z" 
+          fill="#FFFFFF" opacity="0.32" />
+    <ellipse cx="280" cy="225" rx="35" ry="14" transform="rotate(-25 280 225)" fill="#FFFFFF" opacity="0.2" />
+
+    <!-- KUNAFA CRISP & PISTACHIO LAVA CROSS SECTION (Bite / Reveal on Right Half) -->
+    <!-- Cavity Cutout Window -->
+    <path d="M 400 280 
+             C 450 280, 560 320, 560 410 
+             C 560 460, 480 500, 410 520 
+             C 400 460, 390 360, 400 280 Z" 
+          fill="#1C0904" />
+
+    <!-- Thick Chocolate Cut Rim -->
+    <path d="M 400 280 
+             C 450 280, 560 320, 560 410 
+             C 560 460, 480 500, 410 520" 
+          fill="none" stroke="#3D180A" stroke-width="14" stroke-linecap="round" />
+
+    <!-- Pistachio Cream Flowing Lava -->
+    <path d="M 408 290 
+             C 455 290, 545 328, 545 405 
+             C 545 448, 475 488, 418 508 
+             C 410 450, 400 360, 408 290 Z" 
+          fill="url(#pistachioCream)" />
+
+    <!-- Pistachio Cream Gloss Swirls -->
+    <path d="M 430 315 Q 490 330 520 380 Q 470 410 435 370 Z" fill="#A3E635" opacity="0.7" />
+    <path d="M 440 410 Q 490 430 460 475 Q 430 470 425 430 Z" fill="#65A30D" opacity="0.8" />
+
+    <!-- CRISPY GOLDEN KATAIFI (KUNAFA) NOODLE STRANDS (Detailed Textures) -->
+    <g stroke="url(#kataifiGold)" stroke-width="2.6" stroke-linecap="round" fill="none">
+      <!-- Woven Crisp Threads -->
+      <path d="M 415 310 Q 450 320 480 305 Q 515 325 530 350" />
+      <path d="M 425 330 Q 465 315 495 345 Q 525 340 538 375" />
+      <path d="M 412 355 Q 445 365 478 340 Q 510 370 540 395" />
+      <path d="M 430 380 Q 460 395 490 370 Q 520 405 530 430" />
+      <path d="M 420 410 Q 455 400 480 435 Q 505 425 520 455" />
+      <path d="M 418 440 Q 445 450 475 435 Q 495 460 505 485" />
+      <path d="M 422 470 Q 450 475 470 460 Q 485 485 475 500" />
+      
+      <!-- Intersecting Crunchy Curls -->
+      <path d="M 440 298 C 455 330, 435 360, 460 380 C 475 395, 470 425, 455 450" stroke-width="2" />
+      <path d="M 475 310 C 490 340, 465 375, 490 410 C 505 430, 495 460, 480 480" stroke-width="2.2" />
+      <path d="M 505 335 C 520 365, 495 395, 515 425 C 525 440, 510 465, 495 480" stroke-width="1.8" />
+      <path d="M 430 340 C 450 370, 480 360, 495 390 C 510 415, 485 440, 460 465" stroke-width="2.2" />
+    </g>
+
+    <!-- Crushed Pistachio Bits Inside Filling -->
+    <polygon points="445,340 452,335 455,344 447,348" fill="#4D7C0F" />
+    <polygon points="485,360 493,355 496,366 488,370" fill="#84CC16" />
+    <polygon points="460,420 468,415 472,426 462,430" fill="#365314" />
+    <polygon points="505,410 514,405 516,416 507,420" fill="#65A30D" />
+    <polygon points="440,460 448,455 451,465 443,468" fill="#84CC16" />
+
+    <!-- Gold Leaf Flakes on Chocolate Shell -->
+    <polygon points="260,280 268,272 274,282 265,288" fill="url(#luxuryGold)" />
+    <polygon points="320,240 327,235 331,244 323,248" fill="url(#luxuryGold)" />
+    <polygon points="230,340 236,334 241,342 233,346" fill="url(#luxuryGold)" />
+    <polygon points="360,500 368,492 372,502 363,506" fill="url(#luxuryGold)" />
+  </g>
+
+  <!-- TOP BADGE: COMING SOON / PRE-BOOKING -->
+  <g transform="translate(400, 70)">
+    <!-- Badge Background Banner -->
+    <rect x="-190" y="0" width="380" height="46" rx="23" fill="#1C0A04" stroke="url(#luxuryGold)" stroke-width="2" />
+    <!-- Sparkles -->
+    <path d="M -160 23 L -155 13 L -150 23 L -140 28 L -150 33 L -155 43 L -160 33 L -170 28 Z" fill="#F59E0B" />
+    <path d="M 160 23 L 155 13 L 150 23 L 140 28 L 150 33 L 155 43 L 160 33 L 170 28 Z" fill="#F59E0B" />
+    <!-- Text -->
+    <text x="0" y="28" text-anchor="middle" font-family="'Plus Jakarta Sans', system-ui, -apple-system, sans-serif" font-size="16" font-weight="800" fill="#FEF3C7" letter-spacing="2">
+      KUNAFA CHOCOLATE • COMING SOON
+    </text>
+  </g>
+
+  <!-- BOTTOM CARD INFO: 10g SINGLE PIECE & PRE-BOOKING OFFER -->
+  <g transform="translate(400, 715)">
+    <!-- Container pill -->
+    <rect x="-240" y="-36" width="480" height="72" rx="36" fill="rgba(28, 12, 6, 0.95)" stroke="#F59E0B" stroke-width="1.8" />
+    <!-- Product Name -->
+    <text x="0" y="-8" text-anchor="middle" font-family="'Plus Jakarta Sans', system-ui, -apple-system, sans-serif" font-size="19" font-weight="800" fill="#FFFFFF">
+      Single Heart Shaped Kunafa (10g)
+    </text>
+    <!-- Price & Token Callout -->
+    <text x="0" y="20" text-anchor="middle" font-family="'Plus Jakarta Sans', system-ui, -apple-system, sans-serif" font-size="14" font-weight="700" fill="#FDE68A">
+      Pre-Booking: ₹25 • <tspan fill="#34D399">Pay ₹15 Now</tspan> • ₹10 on Delivery
+    </text>
+  </g>
+</svg>

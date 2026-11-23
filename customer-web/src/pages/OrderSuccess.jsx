@@ -367,9 +367,32 @@ export default function OrderSuccess({ orderId, onNavigate }) {
               <span>{order?.is_free_delivery ? 'FREE' : `₹${order?.delivery_charge}`}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '800', fontSize: '1.2rem', color: 'var(--cacao-950)', paddingTop: '8px', borderTop: '1px solid var(--border-medium)' }}>
-              <span>{isPaid ? 'Total Paid:' : (isCod ? 'Pay on Delivery:' : 'Total Amount:')}</span>
+              <span>{isPaid ? 'Total Paid Online:' : (isCod ? 'Pay on Delivery:' : 'Total Amount:')}</span>
               <span>₹{order?.total_amount}</span>
             </div>
+
+            {Number(order?.balance_due_on_delivery) > 0 && (
+              <div style={{
+                backgroundColor: '#FFFBEB',
+                border: '1.5px solid #FCD34D',
+                borderRadius: 'var(--radius-md)',
+                padding: '12px 16px',
+                marginTop: '10px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                color: '#92400E'
+              }}>
+                <div>
+                  <div style={{ fontWeight: '800', fontSize: '0.95rem' }}>✨ Pre-Booking Order Confirmed</div>
+                  <div style={{ fontSize: '0.8rem', color: '#78350F' }}>Advance token paid. Remaining collected upon doorstep delivery.</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#78350F' }}>Balance on Delivery</div>
+                  <strong style={{ fontSize: '1.25rem', color: '#B45309' }}>₹{order?.balance_due_on_delivery}</strong>
+                </div>
+              </div>
+            )}
           </div>
 
           <div style={{ padding: '16px', backgroundColor: 'var(--cream-100)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem' }}>

@@ -7,8 +7,14 @@ export default function ProductCard({ product, onNavigate }) {
   const wishlisted = isWishlisted(product.id);
   const [justAdded, setJustAdded] = useState(false);
 
+  const now = new Date();
+  const endDate = product.prebooking_end_date ? new Date(product.prebooking_end_date) : null;
+  const isPrebookingActive = Number(product.is_prebooking) === 1 && (!endDate || now <= endDate);
+  const isPrebookingClosed = Number(product.is_prebooking) === 1 && !isPrebookingActive;
+  const effectivePrice = isPrebookingClosed && product.post_prebooking_price > 0 ? product.post_prebooking_price : product.selling_price;
+
   const primaryImage = product.primary_image?.image_url || product.image_url || product.images?.[0]?.image_url || '/chocolate-crunch-pb.jpg';
-  const perPiecePrice = product.pieces_per_pack > 1 ? (product.selling_price / product.pieces_per_pack).toFixed(1) : null;
+  const perPiecePrice = product.pieces_per_pack > 1 ? (effectivePrice / product.pieces_per_pack).toFixed(1) : null;
   const inStock = product.stock > 0;
 
   const handleAdd = (e) => {
@@ -60,7 +66,17 @@ export default function ProductCard({ product, onNavigate }) {
 
         {/* Badges Overlays */}
         <div style={{ position: 'absolute', top: '12px', left: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          {product.discount > 0 && (
+          {isPrebookingActive && (
+            <span className="badge" style={{ backgroundColor: '#F59E0B', color: '#1A0A04', fontWeight: '800', boxShadow: '0 2px 6px rgba(0,0,0,0.15)' }}>
+              ✨ Pre-Booking Open
+            </span>
+          )}
+          {isPrebookingClosed && (
+            <span className="badge badge-dark">
+              Pre-Booking Closed
+            </span>
+          )}
+          {product.discount > 0 && !isPrebookingActive && (
             <span className="badge badge-gold">
               {Math.round(product.discount)}% OFF
             </span>
@@ -70,7 +86,7 @@ export default function ProductCard({ product, onNavigate }) {
               Bestseller
             </span>
           )}
-          {product.is_new === 1 && (
+          {product.is_new === 1 && !isPrebookingActive && (
             <span className="badge badge-green">
               New Batch
             </span>
@@ -155,17 +171,45 @@ export default function ProductCard({ product, onNavigate }) {
           {/* Price Breakdown */}
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '6px' }}>
             <span style={{ fontSize: '1.3rem', fontWeight: '800', color: 'var(--cacao-950)' }}>
-              ₹{product.selling_price}
+              ₹{effectivePrice}
             </span>
-            {product.mrp > product.selling_price && (
+            {product.mrp > effectivePrice && (
               <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
                 ₹{product.mrp}
               </span>
             )}
+            {isPrebookingActive && (
+              <span style={{ fontSize: '0.78rem', color: '#D97706', fontWeight: '700' }}>
+                Pre-Book Offer
+              </span>
+            )}
           </div>
 
+          {/* Pre-Booking Token Advance Callout */}
+          {isPrebookingActive && (
+            <div style={{
+              backgroundColor: '#FEF3C7',
+              border: '1px solid #FCD34D',
+              borderRadius: '6px',
+              padding: '6px 10px',
+              fontSize: '0.78rem',
+              color: '#92400E',
+              fontWeight: '600',
+              marginBottom: '12px'
+            }}>
+              Pay <strong style={{ color: '#047857' }}>₹{product.prebooking_deposit} Now</strong> • Balance ₹{product.balance_on_delivery} on Delivery
+            </div>
+          )}
+
+          {/* Post Pre-booking info */}
+          {isPrebookingClosed && (
+            <div style={{ fontSize: '0.78rem', color: '#DC2626', fontWeight: '600', marginBottom: '12px' }}>
+              Pre-bookings closed. Price ₹{effectivePrice}.
+            </div>
+          )}
+
           {/* Individual piece price */}
-          {perPiecePrice && (
+          {perPiecePrice && !isPrebookingActive && (
             <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
               Individual price: <strong style={{ color: 'var(--peanut-gold-700)' }}>₹{perPiecePrice} per piece</strong>
             </div>
@@ -187,7 +231,7 @@ export default function ProductCard({ product, onNavigate }) {
                 aria-label={`Add ${product.name} to cart`}
               >
                 {justAdded ? <Check size={16} /> : <ShoppingBag size={16} />}
-                <span>{justAdded ? 'Added' : 'Add'}</span>
+                <span>{justAdded ? 'Added' : (isPrebookingActive ? 'Pre-Book' : 'Add')}</span>
               </button>
               <button
                 onClick={handleQuickBuy}
@@ -195,7 +239,7 @@ export default function ProductCard({ product, onNavigate }) {
                 style={{ padding: '10px 10px', fontSize: '0.85rem' }}
                 aria-label={`Buy ${product.name} now`}
               >
-                <span>Buy Now</span>
+                <span>{isPrebookingActive ? `Pay ₹${product.prebooking_deposit}` : 'Buy Now'}</span>
               </button>
             </div>
           ) : (

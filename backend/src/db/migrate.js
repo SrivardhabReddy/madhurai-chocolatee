@@ -18,7 +18,7 @@ export async function runMigrations() {
   const sql = fs.readFileSync(migrationPath, 'utf8');
   await exec(sql);
 
-  // Safely ensure dispatch and payment reference columns exist on orders table
+  // Safely ensure dispatch, payment reference, and pre-booking columns exist on orders table
   const columnsToAdd = [
     { name: 'courier_name', type: 'TEXT' },
     { name: 'tracking_number', type: 'TEXT' },
@@ -26,7 +26,10 @@ export async function runMigrations() {
     { name: 'dispatch_date', type: 'TEXT' },
     { name: 'dispatch_notes', type: 'TEXT' },
     { name: 'dispatched_by', type: 'TEXT' },
-    { name: 'payment_reference', type: 'TEXT' }
+    { name: 'payment_reference', type: 'TEXT' },
+    { name: 'advance_paid', type: 'REAL DEFAULT 0' },
+    { name: 'balance_due_on_delivery', type: 'REAL DEFAULT 0' },
+    { name: 'is_prebooking_order', type: 'INTEGER DEFAULT 0' }
   ];
 
   for (const col of columnsToAdd) {
@@ -34,6 +37,36 @@ export async function runMigrations() {
       await exec(`ALTER TABLE orders ADD COLUMN ${col.name} ${col.type}`);
     } catch (e) {
       // Column already exists or table updated
+    }
+  }
+
+  // Ensure pre-booking columns on products table
+  const productColsToAdd = [
+    { name: 'is_prebooking', type: 'INTEGER DEFAULT 0' },
+    { name: 'prebooking_deposit', type: 'REAL DEFAULT 0' },
+    { name: 'balance_on_delivery', type: 'REAL DEFAULT 0' },
+    { name: 'prebooking_end_date', type: 'TEXT DEFAULT NULL' },
+    { name: 'post_prebooking_price', type: 'REAL DEFAULT 0' }
+  ];
+  for (const col of productColsToAdd) {
+    try {
+      await exec(`ALTER TABLE products ADD COLUMN ${col.name} ${col.type}`);
+    } catch (e) {
+      // Column already exists
+    }
+  }
+
+  // Ensure pre-booking columns on order_items table
+  const itemColsToAdd = [
+    { name: 'advance_paid', type: 'REAL DEFAULT 0' },
+    { name: 'balance_due', type: 'REAL DEFAULT 0' },
+    { name: 'is_prebooking', type: 'INTEGER DEFAULT 0' }
+  ];
+  for (const col of itemColsToAdd) {
+    try {
+      await exec(`ALTER TABLE order_items ADD COLUMN ${col.name} ${col.type}`);
+    } catch (e) {
+      // Column already exists
     }
   }
 

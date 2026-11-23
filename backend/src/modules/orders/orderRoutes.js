@@ -91,7 +91,11 @@ router.post('/', orderLimiter, optionalAuth, async (req, res, next) => {
 
     // 2. Fetch live products and recalculate prices (NEVER TRUST CLIENT TOTALS)
     let calculatedSubtotal = 0;
+    let advancePayableTotal = 0;
+    let balanceDueTotal = 0;
+    let hasPrebooking = false;
     const validatedItems = [];
+    const now = new Date();
 
     for (const item of items) {
       const pId = item.product_id || item.id;
@@ -122,14 +126,38 @@ router.post('/', orderLimiter, optionalAuth, async (req, res, next) => {
         });
       }
 
-      const itemTotal = prod.selling_price * qty;
+      // Pre-booking calculation
+      const endDate = prod?.prebooking_end_date ? new Date(prod.prebooking_end_date) : null;
+      const isPrebookingActive = Number(prod.is_prebooking) === 1 && (!endDate || now <= endDate);
+
+      let unitPrice = parseFloat(prod.selling_price);
+      let depositPerUnit = 0;
+      let balancePerUnit = 0;
+
+      if (isPrebookingActive) {
+        hasPrebooking = true;
+        depositPerUnit = parseFloat(prod.prebooking_deposit) || (unitPrice === 25 ? 15 : (unitPrice === 125 ? 50 : unitPrice));
+        balancePerUnit = parseFloat(prod.balance_on_delivery) || Math.max(0, unitPrice - depositPerUnit);
+      } else if (Number(prod.is_prebooking) === 1 && prod.post_prebooking_price > 0) {
+        unitPrice = parseFloat(prod.post_prebooking_price);
+      }
+
+      const itemTotal = unitPrice * qty;
+      const itemAdvance = (isPrebookingActive ? depositPerUnit : unitPrice) * qty;
+      const itemBalance = (isPrebookingActive ? balancePerUnit : 0) * qty;
+
       calculatedSubtotal += itemTotal;
+      advancePayableTotal += itemAdvance;
+      balanceDueTotal += itemBalance;
 
       validatedItems.push({
         product: prod,
         quantity: qty,
-        unitPrice: prod.selling_price,
-        itemTotal
+        unitPrice,
+        itemTotal,
+        isPrebooking: isPrebookingActive ? 1 : 0,
+        advancePaid: itemAdvance,
+        balanceDue: itemBalance
       });
     }
 
@@ -211,13 +239,24 @@ router.post('/', orderLimiter, optionalAuth, async (req, res, next) => {
     });
 
     const deliveryCharge = finalDelivery.freeDelivery ? 0 : finalDelivery.deliveryCharge;
-    const totalAmount = Math.max(0, Math.round((calculatedSubtotal - discountAmount + deliveryCharge) * 100) / 100);
+    const fullOrderValue = Math.max(0, Math.round((calculatedSubtotal - discountAmount + deliveryCharge) * 100) / 100);
+    const advancePayableNow = Math.max(0, Math.round((advancePayableTotal - discountAmount + deliveryCharge) * 100) / 100);
+    
+    // For pre-booking orders online, charge the advance token amount:
+    const totalAmount = hasPrebooking ? advancePayableNow : fullOrderValue;
 
     // Format full address snapshot
     const fullAddress = `${house_building}, ${street}, ${area}, Landmark: ${landmark || 'N/A'}, ${city}, ${district || city}, ${state} - ${pincode}`;
     const orderId = `ord_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const userId = req.user ? req.user.id : null;
     let orderNumber = '';
+
+    // Append pre-booking summary to customer notes
+    let finalCustomerNotes = customer_notes || '';
+    if (hasPrebooking) {
+      const preNote = `[Pre-Booking: Online Advance Paid ₹${advancePayableNow}. Balance ₹${balanceDueTotal} collected on delivery]`;
+      finalCustomerNotes = finalCustomerNotes ? `${finalCustomerNotes} | ${preNote}` : preNote;
+    }
 
     // 5. ATOMIC TRANSACTION: Create Order, Deduct Stock, Record Inventory Tx, Snapshot Items
     await transaction(async (tx) => {
@@ -229,8 +268,9 @@ router.post('/', orderLimiter, optionalAuth, async (req, res, next) => {
           id, order_number, user_id, customer_name, customer_email, customer_phone,
           delivery_address, pincode, zone_name, subtotal, discount_amount, coupon_id, coupon_code,
           delivery_charge, is_free_delivery, tax_amount, total_amount, payment_status,
-          payment_method, order_status, customer_notes, estimated_min_days, estimated_max_days
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)`,
+          payment_method, order_status, customer_notes, estimated_min_days, estimated_max_days,
+          advance_paid, balance_due_on_delivery, is_prebooking_order
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           orderId,
           orderNumber,
@@ -251,9 +291,12 @@ router.post('/', orderLimiter, optionalAuth, async (req, res, next) => {
           totalAmount <= 0 ? 'PAID' : (payment_method === 'COD' ? 'PENDING' : 'PENDING'),
           payment_method,
           totalAmount <= 0 ? 'CONFIRMED' : 'ORDER_PLACED',
-          customer_notes || null,
+          finalCustomerNotes || null,
           finalDelivery.estimatedMinDays,
-          finalDelivery.estimatedMaxDays
+          finalDelivery.estimatedMaxDays,
+          hasPrebooking ? advancePayableNow : (payment_method === 'COD' ? 0 : totalAmount),
+          balanceDueTotal,
+          hasPrebooking ? 1 : 0
         ]
       );
 
@@ -264,8 +307,8 @@ router.post('/', orderLimiter, optionalAuth, async (req, res, next) => {
           `INSERT INTO order_items (
             id, order_id, product_id, product_name_snapshot, selling_unit_snapshot,
             pieces_per_pack_snapshot, weight_snapshot, mrp_snapshot, price_snapshot,
-            quantity, total_item_price
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            quantity, total_item_price, advance_paid, balance_due, is_prebooking
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             itemId,
             orderId,
@@ -275,9 +318,12 @@ router.post('/', orderLimiter, optionalAuth, async (req, res, next) => {
             item.product.pieces_per_pack,
             item.product.weight,
             item.product.mrp,
-            item.product.selling_price,
+            item.unitPrice,
             item.quantity,
-            item.itemTotal
+            item.itemTotal,
+            item.advancePaid,
+            item.balanceDue,
+            item.isPrebooking
           ]
         );
 

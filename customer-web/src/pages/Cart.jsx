@@ -150,6 +150,39 @@ export default function Cart({ onNavigate }) {
 
   const totalQuantity = cartItems.reduce((acc, i) => acc + (parseInt(i.quantity, 10) || 1), 0);
 
+  // Pre-booking logic
+  const now = new Date();
+  const hasPrebooking = cartItems.some(i => {
+    const isPre = Number(i.is_prebooking) === 1 || String(i.id || i.product_id).includes('kunafa');
+    const endDate = i.prebooking_end_date ? new Date(i.prebooking_end_date) : new Date('2026-12-01T23:59:59+05:30');
+    return isPre && now <= endDate;
+  });
+
+  const advancePayable = cartItems.reduce((acc, i) => {
+    const isPre = Number(i.is_prebooking) === 1 || String(i.id || i.product_id).includes('kunafa');
+    const endDate = i.prebooking_end_date ? new Date(i.prebooking_end_date) : new Date('2026-12-01T23:59:59+05:30');
+    const activePre = isPre && now <= endDate;
+    const qty = Math.max(1, parseInt(i.quantity, 10) || 1);
+    const sPrice = parseFloat(i.selling_price) || parseFloat(i.price) || 0;
+    const deposit = activePre 
+      ? (parseFloat(i.prebooking_deposit) || (sPrice === 25 ? 15 : (sPrice === 125 ? 50 : sPrice)))
+      : sPrice;
+    return acc + (deposit * qty);
+  }, 0);
+
+  const balanceDueOnDelivery = cartItems.reduce((acc, i) => {
+    const isPre = Number(i.is_prebooking) === 1 || String(i.id || i.product_id).includes('kunafa');
+    const endDate = i.prebooking_end_date ? new Date(i.prebooking_end_date) : new Date('2026-12-01T23:59:59+05:30');
+    const activePre = isPre && now <= endDate;
+    const qty = Math.max(1, parseInt(i.quantity, 10) || 1);
+    const sPrice = parseFloat(i.selling_price) || parseFloat(i.price) || 0;
+    const deposit = activePre 
+      ? (parseFloat(i.prebooking_deposit) || (sPrice === 25 ? 15 : (sPrice === 125 ? 50 : sPrice)))
+      : sPrice;
+    const balance = activePre ? Math.max(0, sPrice - deposit) : 0;
+    return acc + (balance * qty);
+  }, 0);
+
   // Delivery calculation: Free if 5+ packs or order subtotal >= ₹500, or explicitly free by server
   const isFreeDelivery = serverSummary?.delivery?.freeDelivery ?? (totalQuantity >= 5 || subtotal >= 500);
   const deliveryCharge = isFreeDelivery ? 0 : (serverSummary?.deliveryCharge !== undefined ? Number(serverSummary.deliveryCharge) : 40);
@@ -169,6 +202,9 @@ export default function Cart({ onNavigate }) {
 
   // Final Total is subtotal - discountAmount + deliveryCharge
   const finalTotal = Math.max(0, subtotal - discountAmount + deliveryCharge);
+  const finalPayableNow = hasPrebooking 
+    ? (serverSummary?.finalPayableNow !== undefined ? Number(serverSummary.finalPayableNow) : Math.max(0, Math.round((advancePayable - discountAmount + deliveryCharge) * 100) / 100))
+    : finalTotal;
 
   return (
     <div style={{ padding: '40px 0 80px', backgroundColor: 'var(--cream-50)' }}>
@@ -224,6 +260,14 @@ export default function Cart({ onNavigate }) {
               const itemQty = Math.max(1, parseInt(item.quantity, 10) || 1);
               const itemImg = item.image_url || '/chocolate-crunch-pb.jpg';
 
+              const isItemPrebooking = Number(item.is_prebooking) === 1 || String(item.id || item.product_id).includes('kunafa');
+              const itemEndDate = item.prebooking_end_date ? new Date(item.prebooking_end_date) : new Date('2026-12-01T23:59:59+05:30');
+              const isItemPrebookingActive = isItemPrebooking && now <= itemEndDate;
+              const itemDeposit = isItemPrebookingActive 
+                ? (parseFloat(item.prebooking_deposit) || (itemSellingPrice === 25 ? 15 : (itemSellingPrice === 125 ? 50 : itemSellingPrice)))
+                : itemSellingPrice;
+              const itemBalance = isItemPrebookingActive ? Math.max(0, itemSellingPrice - itemDeposit) : 0;
+
               return (
                 <div
                   key={itemId}
@@ -231,7 +275,7 @@ export default function Cart({ onNavigate }) {
                     backgroundColor: '#FFFFFF',
                     padding: '20px',
                     borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border-subtle)',
+                    border: isItemPrebookingActive ? '1.5px solid #F59E0B' : '1px solid var(--border-subtle)',
                     display: 'flex',
                     gap: '20px',
                     alignItems: 'center',
@@ -262,12 +306,34 @@ export default function Cart({ onNavigate }) {
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <div>
-                        <h3 style={{ fontSize: '1.08rem', color: 'var(--cacao-950)', marginBottom: '4px' }}>
-                          {item.name}
-                        </h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <h3 style={{ fontSize: '1.08rem', color: 'var(--cacao-950)', marginBottom: '4px' }}>
+                            {item.name}
+                          </h3>
+                          {isItemPrebookingActive && (
+                            <span className="badge" style={{ backgroundColor: '#F59E0B', color: '#1A0A04', fontSize: '0.72rem', fontWeight: '800' }}>
+                              Pre-Booking Open
+                            </span>
+                          )}
+                        </div>
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                           {item.weight || '500g'} • {item.pieces_per_pack || 40} pieces ({item.selling_unit || 'BOX'})
                         </span>
+
+                        {isItemPrebookingActive && (
+                          <div style={{
+                            backgroundColor: '#FFFBEB',
+                            border: '1px solid #FCD34D',
+                            borderRadius: '6px',
+                            padding: '4px 8px',
+                            fontSize: '0.76rem',
+                            color: '#92400E',
+                            marginTop: '6px',
+                            display: 'inline-block'
+                          }}>
+                            Pay <strong style={{ color: '#047857' }}>₹{(itemDeposit * itemQty).toFixed(0)} Token Now</strong> • ₹{(itemBalance * itemQty).toFixed(0)} on Delivery
+                          </div>
+                        )}
                       </div>
 
                       <button
@@ -462,6 +528,28 @@ export default function Cart({ onNavigate }) {
                 </div>
               )}
 
+              {hasPrebooking && (
+                <div style={{
+                  backgroundColor: '#FFFBEB',
+                  border: '1px solid #FCD34D',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '10px 12px',
+                  marginTop: '6px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#047857', fontWeight: '700', fontSize: '0.92rem', marginBottom: '4px' }}>
+                    <span>✨ Pre-Booking Token (Pay Now)</span>
+                    <span>₹{advancePayable.toFixed(2)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#B45309', fontWeight: '700', fontSize: '0.92rem' }}>
+                    <span>Remaining Due on Delivery</span>
+                    <span>₹{balanceDueOnDelivery.toFixed(2)}</span>
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: '#78350F', marginTop: '6px' }}>
+                    Pre-booking open until Dec 1. After Dec 1, regular prices increase.
+                  </div>
+                </div>
+              )}
+
               <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -472,8 +560,10 @@ export default function Cart({ onNavigate }) {
                 paddingTop: '14px',
                 marginTop: '4px'
               }}>
-                <span>Final Total</span>
-                <span>₹{finalTotal.toFixed(2)}</span>
+                <span>{hasPrebooking ? 'Pay Online Now' : 'Final Total'}</span>
+                <span style={{ color: hasPrebooking ? '#047857' : 'inherit' }}>
+                  ₹{(hasPrebooking ? finalPayableNow : finalTotal).toFixed(2)}
+                </span>
               </div>
             </div>
 
@@ -483,7 +573,7 @@ export default function Cart({ onNavigate }) {
               className="btn btn-gold btn-lg"
               style={{ width: '100%', padding: '16px' }}
             >
-              <span>{user ? 'Proceed to Checkout' : 'Proceed to Checkout & Sign In'}</span>
+              <span>{hasPrebooking ? `Pre-Book Now (Pay ₹${finalPayableNow.toFixed(0)})` : (user ? 'Proceed to Checkout' : 'Proceed to Checkout & Sign In')}</span>
               <ArrowRight size={18} />
             </button>
 

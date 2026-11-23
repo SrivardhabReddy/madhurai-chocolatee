@@ -111,7 +111,13 @@ export default function ProductDetail({ slug, id, onNavigate }) {
   }
 
   const wishlisted = isWishlisted(product.id);
-  const perPiecePrice = product.pieces_per_pack > 1 ? (product.selling_price / product.pieces_per_pack).toFixed(1) : null;
+  const now = new Date();
+  const endDate = product.prebooking_end_date ? new Date(product.prebooking_end_date) : null;
+  const isPrebookingActive = Number(product.is_prebooking) === 1 && (!endDate || now <= endDate);
+  const isPrebookingClosed = Number(product.is_prebooking) === 1 && !isPrebookingActive;
+  const effectivePrice = isPrebookingClosed && product.post_prebooking_price > 0 ? product.post_prebooking_price : product.selling_price;
+
+  const perPiecePrice = product.pieces_per_pack > 1 ? (effectivePrice / product.pieces_per_pack).toFixed(1) : null;
   const inStock = product.stock > 0;
 
   // Authentic Image Gallery: Chocolate bite & crunchy PB filling, 40-piece box, and product packaging
@@ -273,6 +279,58 @@ export default function ProductDetail({ slug, id, onNavigate }) {
               )}
             </div>
 
+            {/* Pre-Booking Highlight Box */}
+            {isPrebookingActive && (
+              <div style={{
+                backgroundColor: '#FFFBEB',
+                border: '2px solid #F59E0B',
+                borderRadius: 'var(--radius-lg)',
+                padding: '20px',
+                marginBottom: '24px',
+                boxShadow: '0 4px 14px rgba(245, 158, 11, 0.15)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <Sparkles size={18} style={{ color: '#D97706' }} />
+                  <span style={{ fontSize: '0.85rem', fontWeight: '800', color: '#92400E', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Kunafa Chocolate Launch Offer • Pre-Booking Open
+                  </span>
+                </div>
+                <div style={{ fontSize: '1.05rem', fontWeight: '700', color: '#78350F', marginBottom: '10px' }}>
+                  Pre-booking only until <span style={{ textDecoration: 'underline' }}>December 1, 2026</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                  <div style={{ backgroundColor: '#FFFFFF', padding: '12px', borderRadius: '8px', border: '1px solid #FCD34D' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#78350F', display: 'block', fontWeight: '600' }}>Pay Now Online (Advance)</span>
+                    <strong style={{ fontSize: '1.3rem', color: '#047857' }}>₹{product.prebooking_deposit * quantity}</strong>
+                    <span style={{ fontSize: '0.72rem', color: '#047857', display: 'block' }}>₹{product.prebooking_deposit} / unit</span>
+                  </div>
+                  <div style={{ backgroundColor: '#FFFFFF', padding: '12px', borderRadius: '8px', border: '1px solid #FCD34D' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#78350F', display: 'block', fontWeight: '600' }}>Balance on Delivery</span>
+                    <strong style={{ fontSize: '1.3rem', color: '#B45309' }}>₹{product.balance_on_delivery * quantity}</strong>
+                    <span style={{ fontSize: '0.72rem', color: '#B45309', display: 'block' }}>₹{product.balance_on_delivery} / unit</span>
+                  </div>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.78rem', color: '#92400E', lineHeight: '1.4' }}>
+                  ⚡ Pre-bookings close after Dec 1. After Dec 1, regular price increases to <strong>₹{product.post_prebooking_price}</strong> with full payment.
+                </p>
+              </div>
+            )}
+
+            {isPrebookingClosed && (
+              <div style={{
+                backgroundColor: '#FEF2F2',
+                border: '1px solid #F87171',
+                borderRadius: 'var(--radius-md)',
+                padding: '14px 18px',
+                marginBottom: '20px',
+                color: '#991B1B',
+                fontSize: '0.88rem',
+                fontWeight: '600'
+              }}>
+                Pre-bookings closed on Dec 1. Available at standard post-launch price: ₹{effectivePrice}.
+              </div>
+            )}
+
             {/* Price Box */}
             <div style={{
               backgroundColor: 'var(--cream-50)',
@@ -283,21 +341,21 @@ export default function ProductDetail({ slug, id, onNavigate }) {
             }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '14px', marginBottom: '6px' }}>
                 <span style={{ fontSize: '2.5rem', fontWeight: '800', color: 'var(--cacao-950)' }}>
-                  ₹{product.selling_price}
+                  ₹{effectivePrice}
                 </span>
-                {product.mrp > product.selling_price && (
+                {product.mrp > effectivePrice && (
                   <span style={{ fontSize: '1.4rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
                     ₹{product.mrp}
                   </span>
                 )}
-                {product.discount > 0 && (
+                {product.mrp > effectivePrice && (
                   <span style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--success-color)' }}>
-                    Save ₹{(product.mrp - product.selling_price).toFixed(0)} ({Math.round(product.discount)}% OFF)
+                    Save ₹{(product.mrp - effectivePrice).toFixed(0)} ({Math.round(((product.mrp - effectivePrice) / product.mrp) * 100)}% OFF)
                   </span>
                 )}
               </div>
               <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                Inclusive of all taxes. Free express cold-pack shipping on 5+ packs or orders ₹500+
+                {isPrebookingActive ? 'Total pre-booking price. Pay advance now, balance on doorstep delivery.' : 'Inclusive of all taxes. Free express cold-pack shipping on 5+ packs or orders ₹500+'}
               </span>
             </div>
 
@@ -348,7 +406,7 @@ export default function ProductDetail({ slug, id, onNavigate }) {
                     style={{ flex: 1, minWidth: '180px' }}
                   >
                     <ShoppingBag size={20} />
-                    <span>Add to Cart</span>
+                    <span>{isPrebookingActive ? 'Pre-Book (Add to Bag)' : 'Add to Cart'}</span>
                   </button>
 
                   <button
@@ -356,7 +414,7 @@ export default function ProductDetail({ slug, id, onNavigate }) {
                     className="btn btn-gold btn-lg"
                     style={{ flex: 1, minWidth: '180px' }}
                   >
-                    <span>Buy Now</span>
+                    <span>{isPrebookingActive ? `Pre-Book (Pay ₹${product.prebooking_deposit * quantity} Now)` : 'Buy Now'}</span>
                   </button>
 
                   <button
